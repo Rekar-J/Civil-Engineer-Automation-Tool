@@ -11,7 +11,7 @@ def main():
     if not os.path.exists("uploads"):
         os.makedirs("uploads")
 
-    st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide")
+    st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide", page_icon="🛠️")
 
     with st.sidebar:
         selected_tab = option_menu(
@@ -20,6 +20,12 @@ def main():
             icons=["house", "tools", "calendar", "file-check", "gear", "people"],
             menu_icon="menu-button",
             default_index=0,
+            styles={
+                "container": {"padding": "5px"},
+                "icon": {"color": "orange", "font-size": "25px"},
+                "nav-link": {"font-size": "20px", "text-align": "left", "margin": "0px"},
+                "nav-link-selected": {"background-color": "#FF5733"},
+            }
         )
 
     if selected_tab == "Home":
@@ -36,42 +42,45 @@ def main():
         collaboration_and_documentation()
 
 def home():
-    st.title("Welcome to the Civil Engineer Automation Tool")
-    st.write("Upload and manage your project media files (images/videos).")
+    st.title("🏠 Home")
+    st.write("Welcome to the Civil Engineer Automation Tool. Upload and manage your project media files.")
 
     database = load_database()
 
-    uploaded_file = st.file_uploader("Upload an image or video", type=["jpg", "jpeg", "png", "mp4", "mov"])
-
-    if uploaded_file:
-        file_type = "Video" if uploaded_file.type.startswith("video/") else "Image"
-        file_path = os.path.join("uploads", uploaded_file.name)
-        with open(file_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
-        save_to_database(uploaded_file.name, file_type)
-        st.success(f"{file_type} uploaded successfully!")
+    with st.expander("Upload Media Files"):
+        uploaded_file = st.file_uploader("Upload an image or video", type=["jpg", "jpeg", "png", "mp4", "mov"])
+        if uploaded_file:
+            file_type = "Video" if uploaded_file.type.startswith("video/") else "Image"
+            file_path = os.path.join("uploads", uploaded_file.name)
+            with open(file_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            save_to_database(uploaded_file.name, file_type)
+            st.success(f"{file_type} uploaded successfully!")
 
     st.write("### Uploaded Media")
     for _, row in database.iterrows():
         file_path = os.path.join("uploads", row["Uploaded File"])
-        if row["Type"] == "Image":
-            st.image(file_path, caption=row["Uploaded File"], use_container_width=True)
-        elif row["Type"] == "Video":
-            st.video(file_path)
-
-        if st.button(f"Delete {row['Uploaded File']}"):
-            delete_from_database(row["Uploaded File"])
-            os.remove(file_path)
-            st.experimental_rerun()
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            if row["Type"] == "Image":
+                st.image(file_path, caption=row["Uploaded File"], use_container_width=True)
+            elif row["Type"] == "Video":
+                st.video(file_path)
+        with col2:
+            if st.button(f"Delete {row['Uploaded File']}", key=row["Uploaded File"]):
+                delete_from_database(row["Uploaded File"])
+                os.remove(file_path)
+                st.experimental_rerun()
 
 def design_and_analysis():
-    st.title("Design and Analysis")
+    st.title("🛠️ Design and Analysis")
+    st.write("Analyze and design structures with the tools provided.")
 
     tabs = st.tabs(["Structural Analysis", "Geotechnical Analysis", "Hydraulic and Hydrological Modeling"])
 
     with tabs[0]:
         st.header("Structural Analysis")
-        st.write("Example: Load Calculations")
+        st.write("Perform load calculations and evaluate stability.")
         sample_data = pd.DataFrame({
             "Load Type": ["Dead Load", "Live Load", "Wind Load", "Seismic Load"],
             "Load Value (kN)": [500, 300, 150, 200]
@@ -81,7 +90,7 @@ def design_and_analysis():
 
     with tabs[1]:
         st.header("Geotechnical Analysis")
-        st.write("Example: Soil Properties")
+        st.write("Evaluate soil properties for foundation design.")
         sample_soil_data = pd.DataFrame({
             "Soil Type": ["Clay", "Sand", "Gravel", "Silt"],
             "Density (kg/m3)": [1600, 1800, 2000, 1500],
@@ -93,19 +102,19 @@ def design_and_analysis():
 
     with tabs[2]:
         st.header("Hydraulic and Hydrological Modeling")
-        st.write("Example: Water Flow Simulation")
+        st.write("Simulate water flow and design drainage systems.")
         time = np.arange(0, 10, 0.1)
         flow_rate = np.sin(time) * 100 + 200
         st.line_chart(pd.DataFrame({"Time (s)": time, "Flow Rate (L/s)": flow_rate}))
 
 def project_management():
-    st.title("Project Management")
+    st.title("📅 Project Management")
+    st.write("Plan, allocate resources, and monitor project progress.")
 
     tabs = st.tabs(["Scheduling", "Resource Allocation", "Progress Monitoring"])
 
     with tabs[0]:
         st.header("Scheduling")
-        st.write("Example: Project Timeline")
         sample_timeline = pd.DataFrame({
             "Task": ["Foundation", "Framing", "Roofing", "Finishing"],
             "Start Date": ["2025-01-01", "2025-01-15", "2025-02-01", "2025-02-15"],
@@ -115,7 +124,6 @@ def project_management():
 
     with tabs[1]:
         st.header("Resource Allocation")
-        st.write("Example: Labor Assignment")
         labor_data = pd.DataFrame({
             "Worker": ["John", "Jane", "Paul", "Anna"],
             "Role": ["Engineer", "Foreman", "Technician", "Supervisor"],
@@ -125,7 +133,6 @@ def project_management():
 
     with tabs[2]:
         st.header("Progress Monitoring")
-        st.write("Example: Task Completion Status")
         progress_data = pd.DataFrame({
             "Task": ["Foundation", "Framing", "Roofing", "Finishing"],
             "Completion (%)": [100, 75, 50, 25]
@@ -134,13 +141,13 @@ def project_management():
         st.bar_chart(progress_data.set_index("Task"))
 
 def compliance_and_reporting():
-    st.title("Compliance and Reporting")
+    st.title("✅ Compliance and Reporting")
+    st.write("Ensure adherence to standards and generate detailed reports.")
 
     tabs = st.tabs(["Standards Verification", "Report Generation"])
 
     with tabs[0]:
         st.header("Standards Verification")
-        st.write("Example: Building Code Checklist")
         compliance_data = pd.DataFrame({
             "Requirement": ["Fire Safety", "Structural Integrity", "Electrical Standards", "Environmental Impact"],
             "Status": ["Pass", "Pass", "Fail", "Pending"]
@@ -149,7 +156,6 @@ def compliance_and_reporting():
 
     with tabs[1]:
         st.header("Report Generation")
-        st.write("Example: Analysis Summary")
         report_summary = """
         - **Total Load Analysis**: 1150 kN
         - **Critical Soil Type**: Clay
@@ -158,18 +164,17 @@ def compliance_and_reporting():
         st.markdown(report_summary)
 
 def tools_and_utilities():
-    st.title("Tools and Utilities")
+    st.title("🔧 Tools and Utilities")
+    st.write("Use advanced tools for drafting, cost estimation, and visualization.")
 
     tabs = st.tabs(["Automated Design and Drafting", "Quantity Takeoff and Cost Estimation", "Data Visualization"])
 
     with tabs[0]:
         st.header("Automated Design and Drafting")
-        st.write("Example: CAD Design Overview")
         st.image("https://via.placeholder.com/600x400?text=CAD+Preview", caption="Sample CAD Design")
 
     with tabs[1]:
         st.header("Quantity Takeoff and Cost Estimation")
-        st.write("Example: Material Quantification")
         quantity_data = pd.DataFrame({
             "Material": ["Concrete", "Steel", "Bricks", "Wood"],
             "Quantity": [100, 50, 500, 200],
@@ -179,7 +184,6 @@ def tools_and_utilities():
 
     with tabs[2]:
         st.header("Data Visualization")
-        st.write("Example: Project Cost Breakdown")
         cost_data = pd.DataFrame({
             "Category": ["Materials", "Labor", "Equipment", "Miscellaneous"],
             "Cost (USD)": [5000, 3000, 2000, 1000]
@@ -188,13 +192,13 @@ def tools_and_utilities():
         st.plotly_chart(fig)
 
 def collaboration_and_documentation():
-    st.title("Collaboration and Documentation")
+    st.title("🤝 Collaboration and Documentation")
+    st.write("Collaborate effectively and manage project documentation.")
 
     tabs = st.tabs(["Document Management", "Communication Tools"])
 
     with tabs[0]:
         st.header("Document Management")
-        st.write("Example: Version Control")
         version_data = pd.DataFrame({
             "File": ["Design_v1.pdf", "Design_v2.pdf", "Report_v1.docx"],
             "Version": [1, 2, 1],
@@ -204,7 +208,6 @@ def collaboration_and_documentation():
 
     with tabs[1]:
         st.header("Communication Tools")
-        st.write("Example: Meeting Schedule")
         meetings = pd.DataFrame({
             "Date": ["2025-01-10", "2025-01-17", "2025-01-24"],
             "Topic": ["Design Review", "Progress Update", "Final Presentation"],
