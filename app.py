@@ -3,6 +3,24 @@ from streamlit_option_menu import option_menu
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import os
+
+def load_database():
+    if not os.path.exists("database.csv"):
+        pd.DataFrame(columns=["Uploaded File", "Type"]).to_csv("database.csv", index=False)
+    return pd.read_csv("database.csv")
+
+def save_to_database(file_name, file_type):
+    db = load_database()
+    new_entry = pd.DataFrame({"Uploaded File": [file_name], "Type": [file_type]})
+    updated_db = pd.concat([db, new_entry], ignore_index=True)
+    updated_db.to_csv("database.csv", index=False)
+
+def delete_from_database(file_name):
+    db = load_database()
+    updated_db = db[db["Uploaded File"] != file_name]
+    updated_db.to_csv("database.csv", index=False)
+
 
 def main():
     st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide")
@@ -10,13 +28,15 @@ def main():
     with st.sidebar:
         selected_tab = option_menu(
             "Main Menu",
-            ["Design and Analysis", "Project Management", "Compliance and Reporting", "Tools and Utilities", "Collaboration and Documentation"],
-            icons=["tools", "calendar", "file-check", "gear", "people"],
+            ["Home", "Design and Analysis", "Project Management", "Compliance and Reporting", "Tools and Utilities", "Collaboration and Documentation"],
+            icons=["house", "tools", "calendar", "file-check", "gear", "people"],
             menu_icon="menu-button",
             default_index=0,
         )
 
-    if selected_tab == "Design and Analysis":
+    if selected_tab == "Home":
+        home()
+    elif selected_tab == "Design and Analysis":
         design_and_analysis()
     elif selected_tab == "Project Management":
         project_management()
@@ -26,6 +46,36 @@ def main():
         tools_and_utilities()
     elif selected_tab == "Collaboration and Documentation":
         collaboration_and_documentation()
+
+
+def home():
+    st.title("Welcome to the Civil Engineer Automation Tool")
+    st.write("Upload and manage your project media files (images/videos).")
+
+    database = load_database()
+
+    uploaded_file = st.file_uploader("Upload an image or video", type=["jpg", "jpeg", "png", "mp4", "mov"])
+
+    if uploaded_file:
+        file_type = "Video" if uploaded_file.type.startswith("video/") else "Image"
+        file_path = os.path.join("uploads", uploaded_file.name)
+        with open(file_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        save_to_database(uploaded_file.name, file_type)
+        st.success(f"{file_type} uploaded successfully!")
+
+    st.write("### Uploaded Media")
+    for _, row in database.iterrows():
+        file_path = os.path.join("uploads", row["Uploaded File"])
+        if row["Type"] == "Image":
+            st.image(file_path, caption=row["Uploaded File"], use_column_width=True)
+        elif row["Type"] == "Video":
+            st.video(file_path)
+
+        if st.button(f"Delete {row['Uploaded File']}"):
+            delete_from_database(row["Uploaded File"])
+            os.remove(file_path)
+            st.experimental_rerun()
 
 
 def design_and_analysis():
