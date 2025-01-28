@@ -4,6 +4,10 @@ import os
 from database import load_database, save_to_database, delete_from_database
 
 def main():
+    # Ensure the 'uploads' directory exists
+    if not os.path.exists("uploads"):
+        os.makedirs("uploads")
+
     st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide")
 
     with st.sidebar:
@@ -31,9 +35,6 @@ def main():
 def home():
     st.title("Welcome to the Civil Engineer Automation Tool")
     st.write("Upload and manage your project media files (images/videos).")
-
-    if not os.path.exists("uploads"):
-        os.makedirs("uploads")
 
     database = load_database()
 
