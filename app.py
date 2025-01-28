@@ -52,7 +52,7 @@ def home():
     for _, row in database.iterrows():
         file_path = os.path.join("uploads", row["Uploaded File"])
         if row["Type"] == "Image":
-            st.image(file_path, caption=row["Uploaded File"], use_column_width=True)
+            st.image(file_path, caption=row["Uploaded File"], use_container_width=True)
         elif row["Type"] == "Video":
             st.video(file_path)
 
