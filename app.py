@@ -1,5 +1,8 @@
 import streamlit as st
 from streamlit_option_menu import option_menu
+import pandas as pd
+import numpy as np
+import plotly.express as px
 
 def main():
     st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide")
@@ -32,18 +35,32 @@ def design_and_analysis():
 
     with tabs[0]:
         st.header("Structural Analysis")
-        st.write("Perform load calculations, stress-strain assessments, and stability evaluations.")
-        # Placeholder for future functions
+        st.write("Example: Load Calculations")
+        sample_data = pd.DataFrame({
+            "Load Type": ["Dead Load", "Live Load", "Wind Load", "Seismic Load"],
+            "Load Value (kN)": [500, 300, 150, 200]
+        })
+        st.dataframe(sample_data)
+        st.bar_chart(sample_data.set_index("Load Type"))
 
     with tabs[1]:
         st.header("Geotechnical Analysis")
-        st.write("Analyze soil properties and provide foundation design recommendations.")
-        # Placeholder for future functions
+        st.write("Example: Soil Properties")
+        sample_soil_data = pd.DataFrame({
+            "Soil Type": ["Clay", "Sand", "Gravel", "Silt"],
+            "Density (kg/m3)": [1600, 1800, 2000, 1500],
+            "Cohesion (kPa)": [25, 5, 0, 15]
+        })
+        st.dataframe(sample_soil_data)
+        fig = px.scatter(sample_soil_data, x="Density (kg/m3)", y="Cohesion (kPa)", color="Soil Type", title="Soil Properties")
+        st.plotly_chart(fig)
 
     with tabs[2]:
         st.header("Hydraulic and Hydrological Modeling")
-        st.write("Simulate water flow, design drainage systems, and plan sewage systems.")
-        # Placeholder for future functions
+        st.write("Example: Water Flow Simulation")
+        time = np.arange(0, 10, 0.1)
+        flow_rate = np.sin(time) * 100 + 200
+        st.line_chart(pd.DataFrame({"Time (s)": time, "Flow Rate (L/s)": flow_rate}))
 
 
 def project_management():
@@ -53,18 +70,33 @@ def project_management():
 
     with tabs[0]:
         st.header("Scheduling")
-        st.write("Create project timelines and track milestones.")
-        # Placeholder for future functions
+        st.write("Example: Project Timeline")
+        sample_timeline = pd.DataFrame({
+            "Task": ["Foundation", "Framing", "Roofing", "Finishing"],
+            "Start Date": ["2025-01-01", "2025-01-15", "2025-02-01", "2025-02-15"],
+            "End Date": ["2025-01-14", "2025-01-31", "2025-02-14", "2025-02-28"]
+        })
+        st.dataframe(sample_timeline)
 
     with tabs[1]:
         st.header("Resource Allocation")
-        st.write("Manage labor assignments and equipment resources.")
-        # Placeholder for future functions
+        st.write("Example: Labor Assignment")
+        labor_data = pd.DataFrame({
+            "Worker": ["John", "Jane", "Paul", "Anna"],
+            "Role": ["Engineer", "Foreman", "Technician", "Supervisor"],
+            "Assigned Task": ["Foundation", "Framing", "Roofing", "Finishing"]
+        })
+        st.dataframe(labor_data)
 
     with tabs[2]:
         st.header("Progress Monitoring")
-        st.write("Track task completion status and measure performance metrics.")
-        # Placeholder for future functions
+        st.write("Example: Task Completion Status")
+        progress_data = pd.DataFrame({
+            "Task": ["Foundation", "Framing", "Roofing", "Finishing"],
+            "Completion (%)": [100, 75, 50, 25]
+        })
+        st.dataframe(progress_data)
+        st.bar_chart(progress_data.set_index("Task"))
 
 
 def compliance_and_reporting():
@@ -74,13 +106,22 @@ def compliance_and_reporting():
 
     with tabs[0]:
         st.header("Standards Verification")
-        st.write("Ensure building code compliance and adherence to safety regulations.")
-        # Placeholder for future functions
+        st.write("Example: Building Code Checklist")
+        compliance_data = pd.DataFrame({
+            "Requirement": ["Fire Safety", "Structural Integrity", "Electrical Standards", "Environmental Impact"],
+            "Status": ["Pass", "Pass", "Fail", "Pending"]
+        })
+        st.dataframe(compliance_data)
 
     with tabs[1]:
         st.header("Report Generation")
-        st.write("Generate analysis summaries, design specifications, and environmental impact assessments.")
-        # Placeholder for future functions
+        st.write("Example: Analysis Summary")
+        report_summary = """
+        - **Total Load Analysis**: 1150 kN
+        - **Critical Soil Type**: Clay
+        - **Environmental Impact**: Pending
+        """
+        st.markdown(report_summary)
 
 
 def tools_and_utilities():
@@ -90,18 +131,28 @@ def tools_and_utilities():
 
     with tabs[0]:
         st.header("Automated Design and Drafting")
-        st.write("Integrate CAD for 2D/3D designs.")
-        # Placeholder for future functions
+        st.write("Example: CAD Design Overview")
+        st.image("https://via.placeholder.com/600x400?text=CAD+Preview", caption="Sample CAD Design")
 
     with tabs[1]:
         st.header("Quantity Takeoff and Cost Estimation")
-        st.write("Perform material quantification and budget estimation.")
-        # Placeholder for future functions
+        st.write("Example: Material Quantification")
+        quantity_data = pd.DataFrame({
+            "Material": ["Concrete", "Steel", "Bricks", "Wood"],
+            "Quantity": [100, 50, 500, 200],
+            "Unit": ["m3", "tons", "pieces", "pieces"]
+        })
+        st.dataframe(quantity_data)
 
     with tabs[2]:
         st.header("Data Visualization")
-        st.write("Create interactive charts and geospatial data maps.")
-        # Placeholder for future functions
+        st.write("Example: Project Cost Breakdown")
+        cost_data = pd.DataFrame({
+            "Category": ["Materials", "Labor", "Equipment", "Miscellaneous"],
+            "Cost (USD)": [5000, 3000, 2000, 1000]
+        })
+        fig = px.pie(cost_data, names="Category", values="Cost (USD)", title="Project Cost Breakdown")
+        st.plotly_chart(fig)
 
 
 def collaboration_and_documentation():
@@ -111,13 +162,23 @@ def collaboration_and_documentation():
 
     with tabs[0]:
         st.header("Document Management")
-        st.write("Manage version control and file sharing.")
-        # Placeholder for future functions
+        st.write("Example: Version Control")
+        version_data = pd.DataFrame({
+            "File": ["Design_v1.pdf", "Design_v2.pdf", "Report_v1.docx"],
+            "Version": [1, 2, 1],
+            "Last Updated": ["2025-01-01", "2025-01-15", "2025-01-20"]
+        })
+        st.dataframe(version_data)
 
     with tabs[1]:
         st.header("Communication Tools")
-        st.write("Facilitate team messaging and meeting scheduling.")
-        # Placeholder for future functions
+        st.write("Example: Meeting Schedule")
+        meetings = pd.DataFrame({
+            "Date": ["2025-01-10", "2025-01-17", "2025-01-24"],
+            "Topic": ["Design Review", "Progress Update", "Final Presentation"],
+            "Attendees": ["Team A", "Team B", "Team C"]
+        })
+        st.dataframe(meetings)
 
 
 if __name__ == "__main__":
