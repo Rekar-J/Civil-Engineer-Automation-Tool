@@ -16,4 +16,3 @@ def render_sidebar():
             styles=apply_sidebar_styles()
         )
     return selected_tab
-
