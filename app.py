@@ -1,53 +1,27 @@
+### app.py ###
+
 import streamlit as st
 from streamlit_option_menu import option_menu
+from tabs import design_analysis, project_management, compliance_reporting, tools_utilities, collaboration_documentation
 import os
-import pandas as pd
-import numpy as np
-import plotly.express as px
 
-# Initialize database
-if not os.path.exists("database.csv"):
-    pd.DataFrame(columns=["Tab", "SubTab", "Data"]).to_csv("database.csv", index=False)
+# Initialize uploads directory
+if not os.path.exists("uploads"):
+    os.makedirs("uploads")
 
-def load_database():
-    return pd.read_csv("database.csv")
+# Main Application
+st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide", page_icon="🛠️")
 
-def save_to_database(tab, subtab, data):
-    db = load_database()
-    new_entry = pd.DataFrame({"Tab": [tab], "SubTab": [subtab], "Data": [data]})
-    updated_db = pd.concat([db, new_entry], ignore_index=True)
-    updated_db.to_csv("database.csv", index=False)
+with st.sidebar:
+    selected_tab = option_menu(
+        "Main Menu",
+        ["Home", "Design and Analysis", "Project Management", "Compliance and Reporting", "Tools and Utilities", "Collaboration and Documentation"],
+        icons=["house", "tools", "calendar", "file-check", "gear", "people"],
+        menu_icon="menu-button",
+        default_index=0
+    )
 
-def main():
-    # Ensure uploads directory exists
-    if not os.path.exists("uploads"):
-        os.makedirs("uploads")
-
-    st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide", page_icon="🛠️")
-
-    with st.sidebar:
-        selected_tab = option_menu(
-            "Main Menu",
-            ["Home", "Design and Analysis", "Project Management", "Compliance and Reporting", "Tools and Utilities", "Collaboration and Documentation"],
-            icons=["house", "tools", "calendar", "file-check", "gear", "people"],
-            menu_icon="menu-button",
-            default_index=0
-        )
-
-    if selected_tab == "Home":
-        home()
-    elif selected_tab == "Design and Analysis":
-        design_and_analysis()
-    elif selected_tab == "Project Management":
-        project_management()
-    elif selected_tab == "Compliance and Reporting":
-        compliance_and_reporting()
-    elif selected_tab == "Tools and Utilities":
-        tools_and_utilities()
-    elif selected_tab == "Collaboration and Documentation":
-        collaboration_and_documentation()
-
-def home():
+if selected_tab == "Home":
     st.title("🏠 Home")
     st.write("Welcome to the Civil Engineer Automation Tool. Upload and manage your project media files.")
 
@@ -60,7 +34,30 @@ def home():
                 f.write(uploaded_file.getbuffer())
             st.success(f"{file_type} uploaded successfully!")
 
-def design_and_analysis():
+elif selected_tab == "Design and Analysis":
+    design_analysis.run()
+
+elif selected_tab == "Project Management":
+    project_management.run()
+
+elif selected_tab == "Compliance and Reporting":
+    compliance_reporting.run()
+
+elif selected_tab == "Tools and Utilities":
+    tools_utilities.run()
+
+elif selected_tab == "Collaboration and Documentation":
+    collaboration_documentation.run()
+
+
+### tabs/design_analysis.py ###
+
+import streamlit as st
+import pandas as pd
+import numpy as np
+import plotly.express as px
+
+def run():
     st.title("🛠️ Design and Analysis")
     st.write("Analyze and design structures with the tools provided.")
 
@@ -125,7 +122,14 @@ def design_and_analysis():
         else:
             st.write("The flow rate is within acceptable limits for standard drainage systems.")
 
-def project_management():
+
+### tabs/project_management.py ###
+
+import streamlit as st
+import pandas as pd
+
+
+def run():
     st.title("📅 Project Management")
     st.write("Plan, allocate resources, and monitor project progress.")
 
@@ -143,7 +147,32 @@ def project_management():
         duration = pd.to_datetime(sample_timeline["End Date"]).max() - pd.to_datetime(sample_timeline["Start Date"]).min()
         st.write(f"The total project duration is **{duration.days} days**.")
 
-def compliance_and_reporting():
+    with tabs[1]:
+        st.header("Resource Allocation")
+        st.write("Allocate resources effectively for your project.")
+        resource_data = pd.DataFrame({
+            "Resource": ["Workers", "Equipment", "Materials"],
+            "Assigned Task": ["Foundation", "Framing", "Roofing"]
+        })
+        st.dataframe(resource_data)
+
+    with tabs[2]:
+        st.header("Progress Monitoring")
+        st.write("Monitor task progress and completion status.")
+        progress_data = pd.DataFrame({
+            "Task": ["Foundation", "Framing", "Roofing"],
+            "Completion (%)": [100, 75, 50]
+        })
+        st.dataframe(progress_data)
+
+
+### tabs/compliance_reporting.py ###
+
+import streamlit as st
+import pandas as pd
+
+
+def run():
     st.title("✅ Compliance and Reporting")
     st.write("Ensure adherence to standards and generate detailed reports.")
 
@@ -162,7 +191,19 @@ def compliance_and_reporting():
         else:
             st.write("All requirements are met. The project complies with standards.")
 
-def tools_and_utilities():
+    with tabs[1]:
+        st.header("Report Generation")
+        st.write("Generate detailed project reports for stakeholders.")
+
+
+### tabs/tools_utilities.py ###
+
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+
+
+def run():
     st.title("🔧 Tools and Utilities")
     st.write("Use advanced tools for drafting, cost estimation, and visualization.")
 
@@ -181,10 +222,6 @@ def tools_and_utilities():
             "Unit": ["m3", "tons", "pieces", "pieces"]
         })
         st.dataframe(sample_materials)
-        st.write("### Result: Total Material Quantities")
-        total_materials = sample_materials.groupby("Unit")["Quantity"].sum()
-        for unit, quantity in total_materials.items():
-            st.write(f"{quantity} {unit}")
 
     with tabs[2]:
         st.header("Data Visualization")
@@ -195,9 +232,17 @@ def tools_and_utilities():
         fig = px.pie(cost_data, names="Category", values="Cost (USD)", title="Project Cost Breakdown")
         st.plotly_chart(fig)
 
-def collaboration_and_documentation():
+
+### tabs/collaboration_documentation.py ###
+
+import streamlit as st
+import pandas as pd
+
+
+def run():
     st.title("🤝 Collaboration and Documentation")
     st.write("Collaborate effectively and manage project documentation.")
+
     tabs = st.tabs(["Document Management", "Communication Tools"])
 
     with tabs[0]:
@@ -217,6 +262,3 @@ def collaboration_and_documentation():
             "Attendees": ["Team A", "Team B", "Team C"]
         })
         st.dataframe(meetings)
-
-if __name__ == "__main__":
-    main()
