@@ -1,10 +1,10 @@
-# style.py
+### style.py ###
 
-# Centralized styling for the application
+# Sidebar styles restored to original preferences
 def apply_sidebar_styles():
     return {
-        "container": {"padding": "5px", "background-color": "#f0f2f6"},
-        "icon": {"color": "orange", "font-size": "25px"},
-        "nav-link": {"font-size": "20px", "text-align": "left", "margin": "0px", "--hover-color": "#eee"},
-        "nav-link-selected": {"background-color": "#FF5733"},
+        "container": {"padding": "5px", "background-color": "#ffffff"},
+        "icon": {"color": "#000000", "font-size": "20px"},
+        "nav-link": {"font-size": "16px", "text-align": "left", "margin": "0px", "--hover-color": "#f5f5f5"},
+        "nav-link-selected": {"background-color": "#d3d3d3"},
     }
