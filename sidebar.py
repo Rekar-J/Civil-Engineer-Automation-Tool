@@ -1,3 +1,5 @@
+### sidebar.py ###
+
 import streamlit as st
 from streamlit_option_menu import option_menu
 from style import apply_sidebar_styles
@@ -11,6 +13,7 @@ def render_sidebar():
             icons=["house", "tools", "calendar", "file-check", "gear", "people"],
             menu_icon="menu-button",
             default_index=0,
-            styles=apply_sidebar_styles(),
+            styles=apply_sidebar_styles()
         )
     return selected_tab
+
