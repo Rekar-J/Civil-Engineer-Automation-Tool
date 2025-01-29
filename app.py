@@ -81,6 +81,9 @@ def design_and_analysis():
             new_row = pd.DataFrame({"Load Type": [load_type], "Load Value (kN)": [load_value]})
             sample_data = pd.concat([sample_data, new_row], ignore_index=True)
             st.dataframe(sample_data)
+        st.write("### Result: Total Load")
+        total_load = sample_data["Load Value (kN)"].sum()
+        st.write(f"The total load is **{total_load} kN**. Ensure this value meets the design criteria per ACI standards.")
 
     with tabs[1]:
         st.header("Geotechnical Analysis")
@@ -99,6 +102,11 @@ def design_and_analysis():
             new_row = pd.DataFrame({"Soil Type": [soil_type], "Density (kg/m3)": [density], "Cohesion (kPa)": [cohesion]})
             sample_soil_data = pd.concat([sample_soil_data, new_row], ignore_index=True)
             st.dataframe(sample_soil_data)
+        st.write("### Result: Foundation Recommendation")
+        if cohesion > 20:
+            st.write("The soil is suitable for shallow foundations.")
+        else:
+            st.write("Consider deep foundations due to low cohesion.")
 
     with tabs[2]:
         st.header("Hydraulic and Hydrological Modeling")
@@ -111,6 +119,11 @@ def design_and_analysis():
         flow = st.number_input("Enter Flow Rate (L/s)", min_value=0)
         if st.button("Add Simulation Data"):
             st.write(f"Added data: Time = {simulation_time}s, Flow Rate = {flow}L/s")
+        st.write("### Result: Drainage Design")
+        if flow > 250:
+            st.write("The flow rate exceeds typical capacity. Design larger drainage pipes.")
+        else:
+            st.write("The flow rate is within acceptable limits for standard drainage systems.")
 
 def project_management():
     st.title("📅 Project Management")
@@ -126,6 +139,9 @@ def project_management():
             "End Date": ["2025-01-14", "2025-01-31", "2025-02-14", "2025-02-28"]
         })
         st.dataframe(sample_timeline)
+        st.write("### Result: Project Duration")
+        duration = pd.to_datetime(sample_timeline["End Date"]).max() - pd.to_datetime(sample_timeline["Start Date"]).min()
+        st.write(f"The total project duration is **{duration.days} days**.")
 
 def compliance_and_reporting():
     st.title("✅ Compliance and Reporting")
@@ -140,6 +156,11 @@ def compliance_and_reporting():
             "Status": ["Pass", "Pass", "Fail", "Pending"]
         })
         st.dataframe(compliance_data)
+        st.write("### Result: Compliance Status")
+        if "Fail" in compliance_data["Status"].values:
+            st.write("Some requirements are not met. Address the failures immediately.")
+        else:
+            st.write("All requirements are met. The project complies with standards.")
 
 def tools_and_utilities():
     st.title("🔧 Tools and Utilities")
@@ -147,10 +168,55 @@ def tools_and_utilities():
 
     tabs = st.tabs(["Automated Design and Drafting", "Quantity Takeoff and Cost Estimation", "Data Visualization"])
 
+    with tabs[0]:
+        st.header("Automated Design and Drafting")
+        st.image("https://via.placeholder.com/600x400?text=CAD+Preview", caption="Sample CAD Design")
+        st.write("Upload and manage your CAD designs.")
+
+    with tabs[1]:
+        st.header("Quantity Takeoff and Cost Estimation")
+        sample_materials = pd.DataFrame({
+            "Material": ["Concrete", "Steel", "Bricks", "Wood"],
+            "Quantity": [100, 50, 500, 200],
+            "Unit": ["m3", "tons", "pieces", "pieces"]
+        })
+        st.dataframe(sample_materials)
+        st.write("### Result: Total Material Quantities")
+        total_materials = sample_materials.groupby("Unit")["Quantity"].sum()
+        for unit, quantity in total_materials.items():
+            st.write(f"{quantity} {unit}")
+
+    with tabs[2]:
+        st.header("Data Visualization")
+        cost_data = pd.DataFrame({
+            "Category": ["Materials", "Labor", "Equipment", "Miscellaneous"],
+            "Cost (USD)": [5000, 3000, 2000, 1000]
+        })
+        fig = px.pie(cost_data, names="Category", values="Cost (USD)", title="Project Cost Breakdown")
+        st.plotly_chart(fig)
+
 def collaboration_and_documentation():
     st.title("🤝 Collaboration and Documentation")
     st.write("Collaborate effectively and manage project documentation.")
     tabs = st.tabs(["Document Management", "Communication Tools"])
+
+    with tabs[0]:
+        st.header("Document Management")
+        version_data = pd.DataFrame({
+            "File": ["Design_v1.pdf", "Design_v2.pdf", "Report_v1.docx"],
+            "Version": [1, 2, 1],
+            "Last Updated": ["2025-01-01", "2025-01-15", "2025-01-20"]
+        })
+        st.dataframe(version_data)
+
+    with tabs[1]:
+        st.header("Communication Tools")
+        meetings = pd.DataFrame({
+            "Date": ["2025-01-10", "2025-01-17", "2025-01-24"],
+            "Topic": ["Design Review", "Progress Update", "Final Presentation"],
+            "Attendees": ["Team A", "Team B", "Team C"]
+        })
+        st.dataframe(meetings)
 
 if __name__ == "__main__":
     main()
