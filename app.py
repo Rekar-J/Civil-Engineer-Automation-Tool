@@ -1,10 +1,7 @@
-### app.py ###
-
 import streamlit as st
-from sidebar import render_sidebar
 from tabs import design_analysis, project_management, compliance_reporting, tools_utilities, collaboration_documentation
+from sidebar import render_sidebar
 import os
-
 
 # Initialize uploads directory
 if not os.path.exists("uploads"):
