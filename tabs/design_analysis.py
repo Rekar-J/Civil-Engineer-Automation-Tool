@@ -9,61 +9,83 @@ def run():
 
     tabs = st.tabs(["Structural Analysis", "Geotechnical Analysis", "Hydraulic and Hydrological Modeling"])
 
-    with tabs[0]:
+    with tabs[0]:  # Structural Analysis
         st.header("Structural Analysis")
-        st.write("Example: Load Calculations")
-        sample_data = pd.DataFrame({
-            "Load Type": ["Dead Load", "Live Load", "Wind Load", "Seismic Load"],
-            "Load Value (kN)": [500, 300, 150, 200]
-        })
-        st.dataframe(sample_data)
-        st.write("Add your own data:")
-        load_type = st.text_input("Enter Load Type")
-        load_value = st.number_input("Enter Load Value (kN)", min_value=0)
-        if st.button("Add Load"):
-            new_row = pd.DataFrame({"Load Type": [load_type], "Load Value (kN)": [load_value]})
-            sample_data = pd.concat([sample_data, new_row], ignore_index=True)
-            st.dataframe(sample_data)
-        st.write("### Result: Total Load")
-        total_load = sample_data["Load Value (kN)"].sum()
-        st.write(f"The total load is **{total_load} kN**. Ensure this value meets the design criteria per ACI standards.")
+        st.write("Perform load calculations and evaluate structural integrity.")
 
-    with tabs[1]:
+        # Load options dropdown
+        load_options = ["Dead Load", "Live Load", "Wind Load", "Seismic Load", "Snow Load"]
+        selected_load = st.selectbox("Select Load Type", load_options)
+        load_value = st.number_input("Enter Load Value (kN)", min_value=0)
+
+        # Existing sample data
+        if "structural_data" not in st.session_state:
+            st.session_state.structural_data = pd.DataFrame(columns=["Load Type", "Load Value (kN)"])
+
+        if st.button("Add Load"):
+            new_row = pd.DataFrame({"Load Type": [selected_load], "Load Value (kN)": [load_value]})
+            st.session_state.structural_data = pd.concat([st.session_state.structural_data, new_row], ignore_index=True)
+
+        st.write("### Load Data")
+        st.dataframe(st.session_state.structural_data)
+
+        # Perform calculations
+        total_load = st.session_state.structural_data["Load Value (kN)"].sum()
+        average_load = st.session_state.structural_data["Load Value (kN)"].mean()
+        max_load = st.session_state.structural_data["Load Value (kN)"].max()
+
+        st.write(f"### Analysis Results")
+        st.write(f"- **Total Load:** {total_load} kN")
+        st.write(f"- **Average Load:** {average_load:.2f} kN")
+        st.write(f"- **Maximum Load:** {max_load} kN")
+        st.write("Ensure these values comply with ACI and structural safety limits.")
+
+    with tabs[1]:  # Geotechnical Analysis
         st.header("Geotechnical Analysis")
         st.write("Evaluate soil properties for foundation design.")
-        sample_soil_data = pd.DataFrame({
-            "Soil Type": ["Clay", "Sand", "Gravel", "Silt"],
-            "Density (kg/m3)": [1600, 1800, 2000, 1500],
-            "Cohesion (kPa)": [25, 5, 0, 15]
-        })
-        st.dataframe(sample_soil_data)
-        st.write("Add your own data:")
-        soil_type = st.text_input("Enter Soil Type")
-        density = st.number_input("Enter Density (kg/m3)", min_value=0)
-        cohesion = st.number_input("Enter Cohesion (kPa)", min_value=0)
+
+        soil_types = ["Clay", "Sand", "Gravel", "Silt", "Rock"]
+        selected_soil = st.selectbox("Select Soil Type", soil_types)
+        density = st.number_input("Enter Density (kg/m3)", min_value=1000, max_value=2500, step=10)
+        cohesion = st.number_input("Enter Cohesion (kPa)", min_value=0, max_value=100, step=1)
+
+        if "geotechnical_data" not in st.session_state:
+            st.session_state.geotechnical_data = pd.DataFrame(columns=["Soil Type", "Density (kg/m3)", "Cohesion (kPa)"])
+
         if st.button("Add Soil Data"):
-            new_row = pd.DataFrame({"Soil Type": [soil_type], "Density (kg/m3)": [density], "Cohesion (kPa)": [cohesion]})
-            sample_soil_data = pd.concat([sample_soil_data, new_row], ignore_index=True)
-            st.dataframe(sample_soil_data)
-        st.write("### Result: Foundation Recommendation")
+            new_row = pd.DataFrame({"Soil Type": [selected_soil], "Density (kg/m3)": [density], "Cohesion (kPa)": [cohesion]})
+            st.session_state.geotechnical_data = pd.concat([st.session_state.geotechnical_data, new_row], ignore_index=True)
+
+        st.write("### Soil Data")
+        st.dataframe(st.session_state.geotechnical_data)
+
+        # Foundation Recommendation
+        st.write("### Foundation Recommendation")
         if cohesion > 20:
             st.write("The soil is suitable for shallow foundations.")
         else:
             st.write("Consider deep foundations due to low cohesion.")
 
-    with tabs[2]:
+    with tabs[2]:  # Hydraulic and Hydrological Modeling
         st.header("Hydraulic and Hydrological Modeling")
         st.write("Simulate water flow and design drainage systems.")
-        time = np.arange(0, 10, 0.1)
-        flow_rate = np.sin(time) * 100 + 200
-        st.line_chart(pd.DataFrame({"Time (s)": time, "Flow Rate (L/s)": flow_rate}))
-        st.write("Add your flow simulation data:")
-        simulation_time = st.number_input("Enter Simulation Time (s)", min_value=0)
-        flow = st.number_input("Enter Flow Rate (L/s)", min_value=0)
+
+        simulation_time = st.number_input("Enter Simulation Time (s)", min_value=1)
+        flow_rate = st.number_input("Enter Flow Rate (L/s)", min_value=1)
+
+        if "hydraulic_data" not in st.session_state:
+            st.session_state.hydraulic_data = pd.DataFrame(columns=["Time (s)", "Flow Rate (L/s)"])
+
         if st.button("Add Simulation Data"):
-            st.write(f"Added data: Time = {simulation_time}s, Flow Rate = {flow}L/s")
-        st.write("### Result: Drainage Design")
-        if flow > 250:
+            new_row = pd.DataFrame({"Time (s)": [simulation_time], "Flow Rate (L/s)": [flow_rate]})
+            st.session_state.hydraulic_data = pd.concat([st.session_state.hydraulic_data, new_row], ignore_index=True)
+
+        st.write("### Flow Simulation Data")
+        st.dataframe(st.session_state.hydraulic_data)
+
+        # Drainage Design Recommendation
+        st.write("### Drainage Design Recommendation")
+        if flow_rate > 250:
             st.write("The flow rate exceeds typical capacity. Design larger drainage pipes.")
         else:
             st.write("The flow rate is within acceptable limits for standard drainage systems.")
