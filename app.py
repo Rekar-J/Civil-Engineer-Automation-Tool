@@ -7,7 +7,7 @@ from sidebar import render_sidebar
 
 # GitHub repository details
 GITHUB_TOKEN = "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"  # Replace this with your actual token
-GITHUB_REPO = "your_username/your_repository"  # Replace with your GitHub repo
+GITHUB_REPO = "Rekar-J/Civil-Engineer-Automation-Tool"  # Replace with your GitHub repo
 DATABASE_FILE = "database.csv"
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{DATABASE_FILE}"
 HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"}
