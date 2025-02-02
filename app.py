@@ -1,9 +1,63 @@
-### app.py ###
-
 import streamlit as st
 from tabs import design_analysis, project_management, compliance_reporting, tools_utilities, collaboration_documentation
 import os
+import pandas as pd
+import requests
 from sidebar import render_sidebar
+
+# GitHub repository details
+GITHUB_TOKEN = "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"  # Replace this with your actual token
+GITHUB_REPO = "your_username/your_repository"  # Replace with your GitHub repo
+DATABASE_FILE = "database.csv"
+GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{DATABASE_FILE}"
+HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"}
+
+
+# Function to load the database from GitHub
+def load_database():
+    response = requests.get(GITHUB_API_URL, headers=HEADERS)
+    if response.status_code == 200:
+        file_content = response.json()["content"]
+        decoded_content = base64.b64decode(file_content).decode("utf-8")
+        return pd.read_csv(pd.compat.StringIO(decoded_content))
+    else:
+        return pd.DataFrame(columns=["Tab", "SubTab", "Data"])
+
+
+# Function to save data to the database
+def save_to_database(tab, subtab, data):
+    db = load_database()
+    new_entry = pd.DataFrame({"Tab": [tab], "SubTab": [subtab], "Data": [data]})
+    updated_db = pd.concat([db, new_entry], ignore_index=True)
+    
+    # Convert DataFrame to CSV string
+    csv_data = updated_db.to_csv(index=False)
+    encoded_content = base64.b64encode(csv_data.encode()).decode()
+
+    # Update file on GitHub
+    response = requests.get(GITHUB_API_URL, headers=HEADERS)
+    if response.status_code == 200:
+        sha = response.json()["sha"]
+        update_response = requests.put(
+            GITHUB_API_URL,
+            headers=HEADERS,
+            json={
+                "message": "Updated database.csv",
+                "content": encoded_content,
+                "sha": sha,
+            },
+        )
+    else:
+        update_response = requests.put(
+            GITHUB_API_URL,
+            headers=HEADERS,
+            json={
+                "message": "Created database.csv",
+                "content": encoded_content,
+            },
+        )
+    return update_response.status_code
+
 
 # Ensure the 'uploads' directory exists
 if not os.path.exists("uploads"):
