@@ -5,20 +5,25 @@ import plotly.express as px
 
 def run():
     st.title("🛠️ Design and Analysis")
-    st.write("Analyze and design structures with the tools provided.")
+    st.write("This section provides tools for analyzing structural loads, geotechnical properties, hydraulic models, and laboratory test results.")
 
-    tabs = st.tabs(["Structural Analysis", "Geotechnical Analysis", "Hydraulic and Hydrological Modeling", "Tests"])
+    tabs = st.tabs([
+        "Structural Analysis", 
+        "Geotechnical Analysis", 
+        "Hydraulic and Hydrological Modeling", 
+        "Tests"
+    ])
 
     with tabs[0]:  # Structural Analysis
         st.header("Structural Analysis")
-        st.write("Perform load calculations and evaluate structural integrity.")
+        st.write("### About")
+        st.write("Structural analysis involves evaluating loads acting on a structure to ensure stability and compliance with ACI standards.")
 
         # Load options dropdown
         load_options = ["Dead Load", "Live Load", "Wind Load", "Seismic Load", "Snow Load"]
         selected_load = st.selectbox("Select Load Type", load_options)
         load_value = st.number_input("Enter Load Value (kN)", min_value=0)
 
-        # Existing sample data
         if "structural_data" not in st.session_state:
             st.session_state.structural_data = pd.DataFrame(columns=["Load Type", "Load Value (kN)"])
 
@@ -31,89 +36,120 @@ def run():
 
         # Perform calculations
         total_load = st.session_state.structural_data["Load Value (kN)"].sum()
-        average_load = st.session_state.structural_data["Load Value (kN)"].mean()
         max_load = st.session_state.structural_data["Load Value (kN)"].max()
 
-        st.write(f"### Analysis Results")
+        st.write("### Analysis Results")
         st.write(f"- **Total Load:** {total_load} kN")
-        st.write(f"- **Average Load:** {average_load:.2f} kN")
         st.write(f"- **Maximum Load:** {max_load} kN")
-        st.write("Ensure these values comply with ACI and structural safety limits.")
+        st.write("Ensure compliance with ACI standards for safe design.")
 
-    with tabs[3]:  # Water Tests
-        st.header("Water Quality Tests")
-        st.write("Analyze water quality parameters such as TDS and pH.")
+    with tabs[1]:  # Geotechnical Analysis (Restored & Improved)
+        st.header("Geotechnical Analysis")
+        st.write("### About")
+        st.write("Geotechnical analysis evaluates soil properties to determine foundation suitability.")
 
-        # Select Test Type
-        test_type = st.selectbox("Select Water Test", ["TDS (Total Dissolved Solids) Test", "pH Test"])
+        soil_types = ["Clay", "Sand", "Gravel", "Silt", "Rock"]
+        selected_soil = st.selectbox("Select Soil Type", soil_types)
+        density = st.number_input("Enter Density (kg/m3)", min_value=1000, max_value=2500, step=10)
+        cohesion = st.number_input("Enter Cohesion (kPa)", min_value=0, max_value=100, step=1)
 
-        if test_type == "TDS (Total Dissolved Solids) Test":
-            st.subheader("TDS (Total Dissolved Solids) Test")
-            temp = st.number_input("Enter Sample Temperature (°C)", min_value=0, max_value=100, step=1)
-            ec = st.number_input("Enter Electrical Conductivity (EC) (µS/cm or mS/cm)", min_value=0.0, format="%.2f")
-            conversion_factor = st.slider("Conversion Factor (0.5 - 0.7)", min_value=0.5, max_value=0.7, step=0.01, value=0.65)
+        if "geotechnical_data" not in st.session_state:
+            st.session_state.geotechnical_data = pd.DataFrame(columns=["Soil Type", "Density", "Cohesion"])
 
-            if st.button("Calculate TDS"):
-                tds_value = ec * conversion_factor
-                st.write(f"**Total Dissolved Solids (TDS): {tds_value:.2f} mg/L (ppm)**")
+        if st.button("Add Soil Data"):
+            new_row = pd.DataFrame({"Soil Type": [selected_soil], "Density": [density], "Cohesion": [cohesion]})
+            st.session_state.geotechnical_data = pd.concat([st.session_state.geotechnical_data, new_row], ignore_index=True)
 
-                # TDS Classification
-                st.write("### Water Quality Based on TDS:")
-                if tds_value < 300:
-                    st.success("Excellent Water Quality")
-                elif 300 <= tds_value < 600:
-                    st.info("Good Water Quality")
-                elif 600 <= tds_value < 900:
-                    st.warning("Fair Water Quality")
-                elif 900 <= tds_value < 1200:
-                    st.error("Poor Water Quality")
-                else:
-                    st.error("Not Suitable for Drinking")
+        st.write("### Soil Data")
+        st.dataframe(st.session_state.geotechnical_data)
 
-        elif test_type == "pH Test":
-            st.subheader("pH Test")
-            ph_value = st.number_input("Enter Measured pH Value", min_value=0.0, max_value=14.0, step=0.1, format="%.1f")
-            temp_pH = st.number_input("Enter Water Sample Temperature (°C) (Optional)", min_value=0, max_value=100, step=1)
+        # Foundation Recommendation
+        st.write("### Foundation Recommendation")
+        if cohesion > 20:
+            st.write("Suitable for shallow foundations.")
+        else:
+            st.write("Consider deep foundations due to low cohesion.")
 
-            if st.button("Analyze pH"):
-                st.write(f"**pH Value: {ph_value:.2f}**")
+    with tabs[2]:  # Hydraulic and Hydrological Modeling (Restored & Improved)
+        st.header("Hydraulic and Hydrological Modeling")
+        st.write("### About")
+        st.write("Simulates water flow for drainage and hydrological system design.")
 
-                # pH Classification
-                st.write("### Water Quality Based on pH:")
-                if ph_value < 6.5:
-                    st.error("Acidic (May cause corrosion)")
-                elif 6.5 <= ph_value <= 8.5:
-                    st.success("Neutral (Safe for Drinking)")
-                else:
-                    st.warning("Alkaline (May indicate mineral deposits)")
+        simulation_time = st.number_input("Enter Simulation Time (s)", min_value=1)
+        flow_rate = st.number_input("Enter Flow Rate (L/s)", min_value=1)
 
-                # Graphical Representation of pH Scale
-                ph_scale = pd.DataFrame({
-                    "pH Range": ["Acidic", "Neutral", "Alkaline"],
-                    "pH Value": [4.0, 7.0, 10.0]
-                })
-                fig = px.bar(ph_scale, x="pH Range", y="pH Value", title="pH Scale (0-14)")
-                st.plotly_chart(fig)
+        if "hydraulic_data" not in st.session_state:
+            st.session_state.hydraulic_data = pd.DataFrame(columns=["Time (s)", "Flow Rate (L/s)"])
 
-        # Additional Features
-        st.write("### Additional Features")
-        upload_report = st.file_uploader("Upload Test Report (CSV/PDF)", type=["csv", "pdf"])
-        if upload_report:
-            st.success("Test Report Uploaded Successfully!")
+        if st.button("Add Simulation Data"):
+            new_row = pd.DataFrame({"Time (s)": [simulation_time], "Flow Rate (L/s)": [flow_rate]})
+            st.session_state.hydraulic_data = pd.concat([st.session_state.hydraulic_data, new_row], ignore_index=True)
 
-        # Historical Data Storage
-        if "water_test_data" not in st.session_state:
-            st.session_state.water_test_data = pd.DataFrame(columns=["Test Type", "Result"])
+        st.write("### Flow Simulation Data")
+        st.dataframe(st.session_state.hydraulic_data)
 
-        if test_type == "TDS (Total Dissolved Solids) Test" and st.button("Save TDS Result"):
-            st.session_state.water_test_data = pd.concat([st.session_state.water_test_data, 
-                pd.DataFrame({"Test Type": ["TDS"], "Result": [tds_value]})], ignore_index=True)
-            st.success("TDS Test Result Saved!")
+        st.write("### Drainage Design Recommendation")
+        if flow_rate > 250:
+            st.write("Consider larger drainage pipes.")
+        else:
+            st.write("Standard drainage pipes are sufficient.")
 
-        if test_type == "pH Test" and st.button("Save pH Result"):
-            st.session_state.water_test_data = pd.concat([st.session_state.water_test_data, 
-                pd.DataFrame({"Test Type": ["pH"], "Result": [ph_value]})], ignore_index=True)
-            st.success("pH Test Result Saved!")
+    with tabs[3]:  # Water & Soil Tests (Enhanced)
+        st.header("Engineering Tests")
+        st.write("### About")
+        st.write("Conduct laboratory tests on water, soil, and other materials.")
 
-        st.write("### Historical Water Test Data")
-        st.dataframe(st.session_state.water_test_data)
+        test_category = st.selectbox("Select Test Category", ["Water Tests", "Soil Tests"])
+        
+        if test_category == "Water Tests":
+            test_type = st.selectbox("Select Water Test", ["TDS (Total Dissolved Solids)", "pH Test"])
+
+            if test_type == "TDS (Total Dissolved Solids)":
+                ec = st.number_input("Enter Electrical Conductivity (µS/cm or mS/cm)")
+                conversion_factor = st.slider("Conversion Factor (0.5 - 0.7)", min_value=0.5, max_value=0.7, step=0.01)
+
+                if st.button("Calculate TDS"):
+                    tds_value = ec * conversion_factor
+                    st.write(f"**TDS: {tds_value:.2f} mg/L**")
+
+            elif test_type == "pH Test":
+                ph_value = st.number_input("Enter Measured pH Value", min_value=0.0, max_value=14.0, step=0.1)
+
+                if st.button("Analyze pH"):
+                    st.write(f"**pH Value: {ph_value:.2f}**")
+
+        elif test_category == "Soil Tests":
+            test_type = st.selectbox("Select Soil Test", ["Moisture Content", "Atterberg Limits"])
+            
+            if test_type == "Moisture Content":
+                weight_wet = st.number_input("Enter Wet Soil Weight (g)")
+                weight_dry = st.number_input("Enter Dry Soil Weight (g)")
+                
+                if st.button("Calculate Moisture Content"):
+                    moisture_content = ((weight_wet - weight_dry) / weight_dry) * 100
+                    st.write(f"**Moisture Content: {moisture_content:.2f}%**")
+
+---
+### **Updated Home Tab (UI & Content)**
+```python
+import streamlit as st
+
+def run():
+    st.title("🏠 Welcome to the Civil Engineer Automation Tool")
+    
+    st.markdown("""
+    ### About This Application
+    This tool automates key civil engineering calculations, compliance checks, and collaboration tasks.
+    
+    **Key Features**:
+    - 📊 **Structural & Geotechnical Analysis**
+    - 🚰 **Hydraulic & Hydrological Simulations**
+    - 🏗️ **Project Management & Scheduling**
+    - ✅ **Compliance Verification & Reporting**
+    - 📎 **Collaboration & Documentation Tools**
+    """)
+
+    st.image("https://via.placeholder.com/800x400.png?text=Civil+Engineering+Automation", use_column_width=True)
+    
+    st.write("### Quick Start")
+    st.info("Use the left sidebar to navigate different sections of the tool.")
