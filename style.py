@@ -1,6 +1,4 @@
-### style.py ###
-
-# Sidebar styles restored to previous exact settings
+# Sidebar styling
 def apply_sidebar_styles():
     return {
         "container": {"padding": "5px"},
