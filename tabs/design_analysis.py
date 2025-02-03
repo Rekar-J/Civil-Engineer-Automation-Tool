@@ -6,22 +6,12 @@ import plotly.express as px
 def run():
     st.title("🛠️ Design and Analysis")
 
-    st.write("This section provides tools for analyzing structural loads, geotechnical properties, hydraulic models, and laboratory test results.")
+    tabs = st.tabs(["Structural Analysis", "Geotechnical Analysis", "Hydraulic and Hydrological Modeling", "Tests"])
 
-    tabs = st.tabs([
-        "Structural Analysis", 
-        "Geotechnical Analysis", 
-        "Hydraulic and Hydrological Modeling", 
-        "Tests"
-    ])
-
-    ### STRUCTURAL ANALYSIS ###
-    with tabs[0]:  
+    with tabs[0]:  # Structural Analysis
         st.header("Structural Analysis")
-        st.write("### About")
-        st.write("Structural analysis evaluates applied loads on a structure to ensure stability and compliance with ACI standards.")
+        st.write("Structural analysis ensures structures can handle applied loads safely.")
 
-        # Load options dropdown
         load_options = ["Dead Load", "Live Load", "Wind Load", "Seismic Load", "Snow Load"]
         selected_load = st.selectbox("Select Load Type", load_options)
         load_value = st.number_input("Enter Load Value (kN)", min_value=0)
@@ -36,75 +26,12 @@ def run():
         st.write("### Load Data")
         st.dataframe(st.session_state.structural_data)
 
-        # Perform calculations
-        total_load = st.session_state.structural_data["Load Value (kN)"].sum()
-        max_load = st.session_state.structural_data["Load Value (kN)"].max()
-
-        st.write("### Structural Analysis Results")
-        st.write(f"- **Total Load:** {total_load} kN")
-        st.write(f"- **Maximum Load:** {max_load} kN")
-        st.write("Ensure compliance with ACI load design standards.")
-
-    ### GEOTECHNICAL ANALYSIS ###
-    with tabs[1]:  
-        st.header("Geotechnical Analysis")
-        st.write("### About")
-        st.write("Geotechnical analysis assesses soil properties to determine foundation suitability.")
-
-        soil_types = ["Clay", "Sand", "Gravel", "Silt", "Rock"]
-        selected_soil = st.selectbox("Select Soil Type", soil_types)
-        density = st.number_input("Enter Density (kg/m3)", min_value=1000, max_value=2500, step=10)
-        cohesion = st.number_input("Enter Cohesion (kPa)", min_value=0, max_value=100, step=1)
-
-        if "geotechnical_data" not in st.session_state:
-            st.session_state.geotechnical_data = pd.DataFrame(columns=["Soil Type", "Density", "Cohesion"])
-
-        if st.button("Add Soil Data"):
-            new_row = pd.DataFrame({"Soil Type": [selected_soil], "Density": [density], "Cohesion": [cohesion]})
-            st.session_state.geotechnical_data = pd.concat([st.session_state.geotechnical_data, new_row], ignore_index=True)
-
-        st.write("### Soil Data")
-        st.dataframe(st.session_state.geotechnical_data)
-
-        st.write("### Foundation Recommendation")
-        if cohesion > 20:
-            st.write("Suitable for **shallow foundations**.")
-        else:
-            st.write("Consider **deep foundations** due to low cohesion.")
-
-    ### HYDRAULIC AND HYDROLOGICAL MODELING ###
-    with tabs[2]:  
-        st.header("Hydraulic and Hydrological Modeling")
-        st.write("### About")
-        st.write("Simulates water flow for drainage and hydrological system design.")
-
-        simulation_time = st.number_input("Enter Simulation Time (s)", min_value=1)
-        flow_rate = st.number_input("Enter Flow Rate (L/s)", min_value=1)
-
-        if "hydraulic_data" not in st.session_state:
-            st.session_state.hydraulic_data = pd.DataFrame(columns=["Time (s)", "Flow Rate (L/s)"])
-
-        if st.button("Add Simulation Data"):
-            new_row = pd.DataFrame({"Time (s)": [simulation_time], "Flow Rate (L/s)"])
-            st.session_state.hydraulic_data = pd.concat([st.session_state.hydraulic_data, new_row], ignore_index=True)
-
-        st.write("### Flow Simulation Data")
-        st.dataframe(st.session_state.hydraulic_data)
-
-        st.write("### Drainage Design Recommendation")
-        if flow_rate > 250:
-            st.write("Consider using **larger drainage pipes**.")
-        else:
-            st.write("Standard drainage pipes are sufficient.")
-
-    ### TESTS SUB-TAB (RESTORED & IMPROVED) ###
-    with tabs[3]:  
+    with tabs[3]:  # Tests (Fixed)
         st.header("Engineering Tests")
-        st.write("### About")
-        st.write("Conduct laboratory tests on water, soil, and other materials.")
+        st.write("Conduct laboratory tests for water, soil, and materials.")
 
         test_category = st.selectbox("Select Test Category", ["Water Tests", "Soil Tests"])
-        
+
         if test_category == "Water Tests":
             test_type = st.selectbox("Select Water Test", ["TDS (Total Dissolved Solids)", "pH Test"])
 
