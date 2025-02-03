@@ -26,3 +26,22 @@ def run():
 
         st.write("### Compliance Data")
         st.dataframe(st.session_state.compliance_data)
+
+### REPORT GENERATION (RESTORED) ###
+    with tabs[1]:  
+        st.header("Report Generation")
+        st.subheader("📌 About Report Generation")
+        st.info("Generate **detailed compliance and engineering reports** for documentation and legal approval.")
+
+        report_title = st.text_input("Enter Report Title")
+        report_content = st.text_area("Enter Report Content")
+
+        if "report_data" not in st.session_state:
+            st.session_state.report_data = pd.DataFrame(columns=["Title", "Content"])
+
+        if st.button("Generate Report"):
+            new_row = pd.DataFrame({"Title": [report_title], "Content": [report_content]})
+            st.session_state.report_data = pd.concat([st.session_state.report_data, new_row], ignore_index=True)
+
+        st.write("### Generated Reports")
+        st.dataframe(st.session_state.report_data)
