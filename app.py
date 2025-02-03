@@ -4,9 +4,13 @@ import pandas as pd
 import requests
 from sidebar import render_sidebar
 
-# Ensure proper imports of all tabs
+# Ensure Python recognizes the `tabs/` package
 try:
-    from tabs import design_analysis, project_management, compliance_reporting, tools_utilities, collaboration_documentation
+    import tabs.design_analysis as design_analysis
+    import tabs.project_management as project_management
+    import tabs.compliance_reporting as compliance_reporting
+    import tabs.tools_utilities as tools_utilities
+    import tabs.collaboration_documentation as collaboration_documentation
 except ImportError as e:
     st.error(f"Error importing modules: {e}")
 
