@@ -5,14 +5,7 @@ import requests
 from sidebar import render_sidebar
 from tabs import design_analysis, project_management, compliance_reporting, tools_utilities, collaboration_documentation
 
-# GitHub repository details
-GITHUB_TOKEN = "your_personal_access_token"  # Replace with your actual token
-GITHUB_REPO = "your_username/your_repository"  # Replace with your GitHub repo
-DATABASE_FILE = "database.csv"
-GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{DATABASE_FILE}"
-HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"}
-
-# Ensure the 'uploads' directory exists
+# Ensure 'uploads' directory exists
 if not os.path.exists("uploads"):
     os.makedirs("uploads")
 
@@ -33,7 +26,6 @@ if selected_tab == "Home":
             f.write(uploaded_file.getbuffer())
         st.success(f"{file_type} uploaded successfully!")
 
-# Ensure tabs execute properly
 try:
     if selected_tab == "Design and Analysis":
         design_analysis.run()
