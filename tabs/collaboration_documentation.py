@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from database import save_to_database
 
 def run():
     st.title("🤝 Collaboration and Documentation")
@@ -8,11 +9,13 @@ def run():
 
     tabs = st.tabs(["Document Management", "Communication Tools"])
 
+    ### DOCUMENT MANAGEMENT ###
     with tabs[0]:  
         st.header("Document Management")
-        st.subheader("📌 About Document Management")
-        st.info("This tool allows engineers to **upload, version-control, and share project documents**.")
-
         uploaded_file = st.file_uploader("Upload Project Document", type=["pdf", "docx", "xlsx"])
         if uploaded_file:
             st.success("Document uploaded successfully!")
+
+            # Save document metadata to GitHub
+            new_entry = pd.DataFrame({"Document Name": [uploaded_file.name], "File Type": [uploaded_file.type]})
+            save_to_database("Collaboration and Documentation", "Document Management", new_entry.to_dict(orient="records"))
