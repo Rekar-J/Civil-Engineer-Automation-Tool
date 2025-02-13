@@ -1,21 +1,25 @@
 import streamlit as st
-import pandas as pd
-from database import save_to_database
 
 def run():
-    st.title("🤝 Collaboration and Documentation")
+    st.title("🗂️ Collaboration and Documentation")
 
-    st.write("This section helps engineers share documents, track revisions, and manage team communication.")
+    st.write("This section provides tools for document management and team communication.")
 
     tabs = st.tabs(["Document Management", "Communication Tools"])
 
-    ### DOCUMENT MANAGEMENT ###
-    with tabs[0]:  
-        st.header("Document Management")
-        uploaded_file = st.file_uploader("Upload Project Document", type=["pdf", "docx", "xlsx"])
-        if uploaded_file:
-            st.success("Document uploaded successfully!")
+    ### COMMUNICATION TOOLS (RESTORED) ###
+    with tabs[1]:  
+        st.header("Communication Tools")
+        st.subheader("📌 About Communication Tools")
+        st.info("This tool provides **real-time messaging and meeting scheduling** for engineering teams.")
 
-            # Save document metadata to GitHub
-            new_entry = pd.DataFrame({"Document Name": [uploaded_file.name], "File Type": [uploaded_file.type]})
-            save_to_database("Collaboration and Documentation", "Document Management", new_entry.to_dict(orient="records"))
+        st.write("💬 **Team Messaging**")
+        message = st.text_area("Send a message to the team")
+        if st.button("Send Message"):
+            st.success("Message sent successfully!")
+
+        st.write("📅 **Meeting Scheduling**")
+        meeting_date = st.date_input("Select Meeting Date")
+        meeting_time = st.time_input("Select Meeting Time")
+        if st.button("Schedule Meeting"):
+            st.success(f"Meeting scheduled on {meeting_date} at {meeting_time}.")
