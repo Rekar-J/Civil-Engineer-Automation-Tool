@@ -1,7 +1,4 @@
 streamlit
-streamlit-option-menu
-matplotlib
 pandas
-numpy
-plotly
-scipy
+requests
+base64
