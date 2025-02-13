@@ -48,7 +48,7 @@ if selected_tab == "Home":
         st.success(f"{file_type} uploaded successfully!")
 
     st.write("### Uploaded Media")
-    database, _ = load_database()
+    database, _ = load_database()  # ✅ Fixed unpacking issue
     media_files = database[database["Tab"] == "Home"]
 
     for _, row in media_files.iterrows():
