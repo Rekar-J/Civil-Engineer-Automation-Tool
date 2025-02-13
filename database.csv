@@ -1,1 +1,6 @@
 Tab,SubTab,Data
+Design and Analysis,Structural Analysis,"{""Load Type"": ""Dead Load"", ""Load Value"": 500}"
+Design and Analysis,Structural Analysis,"{""Load Type"": ""Live Load"", ""Load Value"": 300}"
+Project Management,Scheduling,"{""Task"": ""Site Inspection"", ""Start Date"": ""2025-03-01"", ""End Date"": ""2025-03-10""}"
+Compliance and Reporting,Standards Verification,"{""Requirement"": ""Building Code ACI 318"", ""Status"": ""Pass""}"
+Tools and Utilities,Quantity Takeoff & Cost Estimation,"{""Material"": ""Concrete"", ""Unit Price"": 120, ""Quantity"": 50, ""Unit"": ""m³"", ""Currency"": ""USD"", ""Total Cost"": 6000}"
