@@ -8,13 +8,13 @@ import tabs.compliance_reporting as compliance_reporting
 import tabs.tools_utilities as tools_utilities
 import tabs.collaboration_documentation as collaboration_documentation
 
-# Ensure the 'uploads' directory exists
+# ✅ Ensure the 'uploads' directory exists
 if not os.path.exists("uploads"):
     os.makedirs("uploads")
 
 st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide")
 
-# Render Sidebar
+# ✅ Render Sidebar
 selected_tab = render_sidebar()
 
 ### 🚀 HOME TAB (UPDATED) ###
@@ -42,7 +42,7 @@ if selected_tab == "Home":
         with open(file_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
 
-        # Save uploaded file metadata to GitHub
+        # ✅ Save uploaded file metadata to GitHub
         save_to_database("Home", "Media Uploads", uploaded_file.name)
 
         st.success(f"{file_type} uploaded successfully!")
