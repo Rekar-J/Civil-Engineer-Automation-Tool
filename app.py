@@ -1,7 +1,5 @@
 import streamlit as st
 import os
-import pandas as pd
-import requests
 from sidebar import render_sidebar
 from database import load_database, save_to_database
 import tabs.design_analysis as design_analysis
@@ -19,7 +17,7 @@ st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide")
 # Render Sidebar
 selected_tab = render_sidebar()
 
-### 🚀 HOME TAB (ENHANCED) ###
+### 🚀 HOME TAB (UPDATED) ###
 if selected_tab == "Home":
     st.title("🏠 Welcome to the Civil Engineer Automation Tool")
 
@@ -45,12 +43,12 @@ if selected_tab == "Home":
             f.write(uploaded_file.getbuffer())
 
         # Save uploaded file metadata to GitHub
-        save_to_database("Home", "Media Uploads", {"File Name": uploaded_file.name, "Type": file_type})
+        save_to_database("Home", "Media Uploads", uploaded_file.name)
 
         st.success(f"{file_type} uploaded successfully!")
 
     st.write("### Uploaded Media")
-    database = load_database()
+    database, _ = load_database()
     media_files = database[database["Tab"] == "Home"]
 
     for _, row in media_files.iterrows():
