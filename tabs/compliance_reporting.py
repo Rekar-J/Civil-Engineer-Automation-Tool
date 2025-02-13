@@ -12,10 +12,18 @@ def run():
     with tabs[0]:  
         st.header("Standards Verification")
         st.subheader("📌 About Compliance Verification")
-        st.info("This tool checks if your project **meets safety codes and legal requirements**.")
+        st.info("Check if your project **meets safety codes and legal requirements**.")
 
-    ### REPORT GENERATION (RESTORED) ###
-    with tabs[1]:  
-        st.header("Report Generation")
-        st.subheader("📌 About Report Generation")
-        st.info("Generate **detailed compliance and engineering reports** for documentation and legal approval.")
+        requirement = st.text_input("Enter Requirement Name")
+        status_options = ["Pass", "Fail", "Pending"]
+        compliance_status = st.selectbox("Select Compliance Status", status_options)
+
+        if "compliance_data" not in st.session_state:
+            st.session_state.compliance_data = pd.DataFrame(columns=["Requirement", "Status"])
+
+        if st.button("Add Compliance Check"):
+            new_row = pd.DataFrame({"Requirement": [requirement], "Status": [compliance_status]})
+            st.session_state.compliance_data = pd.concat([st.session_state.compliance_data, new_row], ignore_index=True)
+
+        st.write("### Compliance Data")
+        st.dataframe(st.session_state.compliance_data)
