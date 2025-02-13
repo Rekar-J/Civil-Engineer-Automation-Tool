@@ -42,35 +42,4 @@ if selected_tab == "Home":
         with open(file_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
 
-        # ✅ Save uploaded file metadata to GitHub
-        save_to_database("Home", "Media Uploads", uploaded_file.name)
-
-        st.success(f"{file_type} uploaded successfully!")
-
-    st.write("### Uploaded Media")
-    database, _ = load_database()  # ✅ Fixed unpacking issue
-    media_files = database[database["Tab"] == "Home"]
-
-    for _, row in media_files.iterrows():
-        file_path = os.path.join("uploads", row["Data"])
-        if row["SubTab"] == "Media Uploads":
-            if row["Data"].endswith((".jpg", ".jpeg", ".png")):
-                st.image(file_path, caption=row["Data"], use_column_width=True)
-            elif row["Data"].endswith((".mp4", ".mov")):
-                st.video(file_path)
-
-### 🚀 CALLING ALL OTHER TABS ###
-elif selected_tab == "Design and Analysis":
-    design_analysis.run()
-
-elif selected_tab == "Project Management":
-    project_management.run()
-
-elif selected_tab == "Compliance and Reporting":
-    compliance_reporting.run()
-
-elif selected_tab == "Tools and Utilities":
-    tools_utilities.run()
-
-elif selected_tab == "Collaboration and Documentation":
-    collaboration_documentation.run()
+        # ✅ Save uploaded file m
