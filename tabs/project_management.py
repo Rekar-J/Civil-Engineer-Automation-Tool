@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-from database import save_to_database
 
 def run():
     st.title("📅 Project Management")
@@ -9,22 +8,27 @@ def run():
 
     tabs = st.tabs(["Scheduling", "Resource Allocation", "Progress Monitoring"])
 
-    ### SCHEDULING ###
-    with tabs[0]:  
-        st.header("Scheduling")
-        task = st.text_input("Enter Task Name", key="schedule_task_name")
-        start_date = st.date_input("Start Date", key="schedule_start_date")
-        end_date = st.date_input("End Date", key="schedule_end_date")
+    ### RESOURCE ALLOCATION (RESTORED) ###
+    with tabs[1]:  
+        st.header("Resource Allocation")
+        st.subheader("📌 About Resource Allocation")
+        st.info("This tool helps engineers assign **labor, equipment, and materials** to different tasks.")
 
-        if "scheduling_data" not in st.session_state:
-            st.session_state.scheduling_data = pd.DataFrame(columns=["Task", "Start Date", "End Date"])
+        resource = st.text_input("Enter Resource Name", key="resource_name")
+        assigned_task = st.text_input("Assigned Task", key="assigned_task")
 
-        if st.button("Add Task", key="add_schedule_task"):
-            new_row = pd.DataFrame({"Task": [task], "Start Date": [start_date], "End Date": [end_date]})
-            st.session_state.scheduling_data = pd.concat([st.session_state.scheduling_data, new_row], ignore_index=True)
+        if "resource_data" not in st.session_state:
+            st.session_state.resource_data = pd.DataFrame(columns=["Resource", "Assigned Task"])
 
-            # Save data to GitHub
-            save_to_database("Project Management", "Scheduling", new_row.to_dict(orient="records"))
+        if st.button("Allocate Resource", key="allocate_resource"):
+            new_row = pd.DataFrame({"Resource": [resource], "Assigned Task": [assigned_task]})
+            st.session_state.resource_data = pd.concat([st.session_state.resource_data, new_row], ignore_index=True)
 
-        st.write("### Project Timeline")
-        st.dataframe(st.session_state.scheduling_data)
+        st.write("### Resource Allocation")
+        st.dataframe(st.session_state.resource_data)
+
+    ### PROGRESS MONITORING (RESTORED) ###
+    with tabs[2]:  
+        st.header("Progress Monitoring")
+        st.subheader("📌 About Progress Monitoring")
+        st.info("Track **project completion, performance metrics, and task status** to ensure projects stay on schedule.")
