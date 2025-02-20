@@ -12,42 +12,50 @@ import tabs.tools_utilities as tools_utilities
 import tabs.collaboration_documentation as collaboration_documentation
 
 # ------------------------ GITHUB DETAILS ------------------------
-# Replace with your actual secrets or environment variables
 GITHUB_TOKEN = "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"
 GITHUB_REPO = "Rekar-J/Civil-Engineer-Automation-Tool"
 DATABASE_FILE = "database.csv"
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{DATABASE_FILE}"
 HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"}
 
-# ------------------------ LOCAL USERS CSV ------------------------
-# A minimal example "users.csv" with columns: username,password
-# e.g.:
-# username,password
-# alice,1234
-# bob,abcd
-# Make sure you have users.csv in the same directory or handle creation below
+# ------------------------ USERS CSV (STORES LOGINS) ------------------------
 USERS_FILE = "users.csv"
 
 def ensure_users_csv():
-    """Initialize users.csv if it doesn't exist."""
+    """Initialize an empty users.csv if it doesn't exist."""
     if not os.path.exists(USERS_FILE):
-        df = pd.DataFrame({"username": ["alice", "bob"], "password": ["1234", "abcd"]})
+        # Create an empty CSV with columns: username, password
+        df = pd.DataFrame(columns=["username", "password"])
         df.to_csv(USERS_FILE, index=False)
 
-def check_credentials(username, password):
-    """Check if the given username/password is in users.csv."""
+def load_users():
+    """Load all users into a DataFrame."""
     if not os.path.exists(USERS_FILE):
-        return False
-    users_df = pd.read_csv(USERS_FILE)
+        ensure_users_csv()
+        return pd.DataFrame(columns=["username", "password"])
+    return pd.read_csv(USERS_FILE)
+
+def save_user(username, password):
+    """Add a new user to the users.csv file."""
+    users_df = load_users()
+    new_row = pd.DataFrame({"username": [username], "password": [password]})
+    updated_df = pd.concat([users_df, new_row], ignore_index=True)
+    updated_df.to_csv(USERS_FILE, index=False)
+
+def user_exists(username):
+    """Check if a username already exists."""
+    users_df = load_users()
+    return not users_df[users_df["username"] == username].empty
+
+def check_credentials(username, password):
+    """Validate if the given username/password is correct."""
+    users_df = load_users()
     row = users_df[(users_df["username"] == username) & (users_df["password"] == password)]
     return not row.empty
 
 # ------------------------ GITHUB DATABASE OPERATIONS ------------------------
 def pull_database():
-    """
-    Pull database.csv from GitHub and store locally.
-    Returns a DataFrame of the pulled CSV.
-    """
+    """Pull database.csv from GitHub and store locally."""
     response = requests.get(GITHUB_API_URL, headers=HEADERS)
     if response.status_code == 200:
         file_content = response.json().get("content", "")
@@ -55,57 +63,72 @@ def pull_database():
         decoded_content = base64.b64decode(file_content).decode("utf-8")
         with open(DATABASE_FILE, "w", encoding="utf-8") as f:
             f.write(decoded_content)
-        return pd.read_csv(DATABASE_FILE), sha
+        df = pd.read_csv(DATABASE_FILE)
+        return df, sha
     else:
         # If file not found or any other error, create an empty file
-        pd.DataFrame(columns=["Tab", "SubTab", "Data"]).to_csv(DATABASE_FILE, index=False)
-        return pd.DataFrame(columns=["Tab", "SubTab", "Data"]), None
+        empty_df = pd.DataFrame(columns=["Tab", "SubTab", "Data"])
+        empty_df.to_csv(DATABASE_FILE, index=False)
+        return empty_df, None
 
 def push_database(df, sha=None):
-    """
-    Push the updated database.csv to GitHub.
-    If sha is known (file already exists), we update. Otherwise we create a new file.
-    """
+    """Push the updated database.csv to GitHub."""
     csv_data = df.to_csv(index=False)
     encoded_content = base64.b64encode(csv_data.encode()).decode()
+
     if sha:
-        # Update existing file
         data = {
             "message": "Update database.csv",
             "content": encoded_content,
             "sha": sha
         }
     else:
-        # Create new file
         data = {
             "message": "Create database.csv",
             "content": encoded_content
         }
+
     response = requests.put(GITHUB_API_URL, headers=HEADERS, json=data)
     return response.status_code
 
 # ------------------------ STREAMLIT APP ------------------------
-def login_screen():
-    """Display the login screen and return True if logged in."""
-    st.title("🔒 Login to Civil Engineer Automation Tool")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        if check_credentials(username, password):
-            st.session_state["logged_in"] = True
-            st.session_state["username"] = username
-            st.success("Login successful!")
-            st.experimental_rerun()
+def sign_up_screen():
+    st.title("Create a New Account")
+    new_username = st.text_input("Choose a Username", key="signup_username")
+    new_password = st.text_input("Choose a Password", type="password", key="signup_password")
+
+    if st.button("Sign Up"):
+        if new_username == "" or new_password == "":
+            st.error("Username/Password cannot be empty.")
+        elif user_exists(new_username):
+            st.error("Username already exists. Please choose a different one.")
         else:
-            st.error("Invalid username or password.")
-    return st.session_state.get("logged_in", False)
+            save_user(new_username, new_password)
+            st.success("Account created! Please go back to login.")
+            st.stop()
+
+def login_screen():
+    st.title("🔒 Login to Civil Engineer Automation Tool")
+    username = st.text_input("Username", key="login_username")
+    password = st.text_input("Password", type="password", key="login_password")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Login"):
+            if check_credentials(username, password):
+                st.session_state["logged_in"] = True
+                st.session_state["username"] = username
+                st.success("Login successful!")
+                st.experimental_rerun()
+            else:
+                st.error("Invalid username or password.")
+    with col2:
+        if st.button("Sign Up"):
+            st.session_state["sign_up"] = True
+            st.experimental_rerun()
 
 def main_app():
-    """
-    Main application after successful login.
-    Pull database from GitHub, sync changes upon user actions, 
-    and show main interface with sidebar navigation.
-    """
+    """Main application after successful login."""
     st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide")
     st.session_state["db_df"], st.session_state["db_sha"] = pull_database()
 
@@ -127,24 +150,29 @@ def main_app():
         collaboration_documentation.run()
 
     # Example of a "Save to GitHub" button to push changes
+    st.write("---")
     if st.button("Push Changes to GitHub"):
-        # Re-read local CSV if changed
         local_df = pd.read_csv(DATABASE_FILE) if os.path.exists(DATABASE_FILE) else st.session_state["db_df"]
         status_code = push_database(local_df, sha=st.session_state["db_sha"])
-        if status_code == 200 or status_code == 201:
+        if status_code in (200, 201):
             st.success("Database successfully pushed to GitHub!")
         else:
             st.error(f"Failed to push to GitHub. Status code: {status_code}")
 
-# ------------------------ MAIN EXECUTION ------------------------
 def run():
-    ensure_users_csv()  # Ensure users.csv exists
+    # Ensure we have an empty users.csv if not present
+    ensure_users_csv()
+
     if "logged_in" not in st.session_state:
         st.session_state["logged_in"] = False
+    if "sign_up" not in st.session_state:
+        st.session_state["sign_up"] = False
 
-    # If not logged in, show login screen
     if not st.session_state["logged_in"]:
-        login_screen()
+        if st.session_state["sign_up"]:
+            sign_up_screen()
+        else:
+            login_screen()
     else:
         main_app()
 
