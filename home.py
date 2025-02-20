@@ -11,9 +11,9 @@ def run():
     with col1:
         st.markdown("""
         ### About This Application
-        The **Civil Engineer Automation Tool** is a comprehensive platform designed 
-        for civil engineers to automate tasks such as structural analysis, project 
-        management, compliance checks, and collaboration.
+        The **Civil Engineer Automation Tool** is a comprehensive platform 
+        designed for civil engineers to automate tasks such as structural 
+        analysis, project management, compliance checks, and collaboration.
 
         **Key Features**:
         - 🏗️ **Structural & Geotechnical Analysis**
@@ -22,21 +22,19 @@ def run():
         - ✅ **Compliance Verification & Reporting**
         - 🔗 **Collaboration & Documentation Tools**
         
-        This home section provides an overview of the app and allows you to customize 
-        the welcome banner image below.
+        Use the panel on the right to customize the home banner image below 
+        without leaving or refreshing this page. 
         """)
 
     # Path to the current home banner image
     HOME_BANNER_PATH = "uploads/home header image.jpg"
-    placeholder_image = "uploads/content.txt"  # Some placeholder or fallback if no image exists
 
     with col2:
         st.subheader("Current Banner Image")
-        # Check if the file exists
+        # Check if the file exists or if a new image was just uploaded
         if os.path.exists(HOME_BANNER_PATH):
             st.image(HOME_BANNER_PATH, use_container_width=True)
         else:
-            # Show a fallback or placeholder
             st.info("No banner image found. Please upload or set one below.")
 
     st.write("---")
@@ -46,15 +44,24 @@ def run():
         st.markdown("""
         You can **upload a local image** from your computer or **pull an image from the web** 
         using a URL. You can also **delete/reset** the current banner image.
+        
+        Once updated, the new banner will appear **immediately** below, 
+        and your session remains active without requiring a refresh.
         """)
 
         # --- Option 1: Upload from local desktop ---
-        uploaded_file = st.file_uploader("Upload a local image (PNG/JPG)", type=["png", "jpg", "jpeg"], key="home_local_image")
+        uploaded_file = st.file_uploader("Upload a local image (PNG/JPG)", 
+                                         type=["png", "jpg", "jpeg"], 
+                                         key="home_local_image")
         if uploaded_file is not None:
-            # Save the uploaded image to HOME_BANNER_PATH
-            with open(HOME_BANNER_PATH, "wb") as f:
+            # Save the uploaded image
+            file_path = HOME_BANNER_PATH
+            with open(file_path, "wb") as f:
                 f.write(uploaded_file.getbuffer())
-            st.success("Home banner image updated from local file! Refresh the page to see changes.")
+
+            st.success("Home banner image updated from local file!")
+            # Immediately show the updated banner without re-run
+            st.image(file_path, use_container_width=True)
 
         st.write("---")
 
@@ -66,10 +73,12 @@ def run():
             else:
                 try:
                     response = requests.get(url_image, timeout=10)
-                    if response.status_code == 200 and response.headers["Content-Type"].startswith("image"):
+                    content_type = response.headers.get("Content-Type", "")
+                    if response.status_code == 200 and content_type.startswith("image"):
                         with open(HOME_BANNER_PATH, "wb") as f:
                             f.write(response.content)
                         st.success("Home banner image updated from web URL!")
+                        st.image(HOME_BANNER_PATH, use_container_width=True)
                     else:
                         st.error("Could not fetch a valid image from the provided URL.")
                 except Exception as e:
@@ -85,6 +94,8 @@ def run():
             else:
                 st.info("No home banner image found to delete.")
 
-    # Final layout below the expander
+        st.write("---")
+        st.info("You remain logged in. No page refresh is required.")
+
     st.write("### Quick Start Guide")
-    st.info("Use the left sidebar to navigate different sections of the tool. Explore the app to discover automated features for civil engineering tasks.")
+    st.info("Use the left sidebar to navigate different sections of the tool.")
