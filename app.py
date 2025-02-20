@@ -3,6 +3,9 @@ import os
 import pandas as pd
 import base64
 import requests
+import uuid
+from streamlit_cookies_manager import EncryptedCookieManager
+
 from sidebar import render_sidebar
 from home import run as run_home
 import tabs.design_analysis as design_analysis
@@ -22,28 +25,21 @@ HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"}
 USERS_FILE = "users.csv"
 
 def ensure_users_csv():
-    """
-    Initialize users.csv if it doesn't exist or is empty.
-    Always write headers: username,password
-    """
+    """Create an empty users.csv if missing or empty."""
     if not os.path.exists(USERS_FILE) or os.path.getsize(USERS_FILE) == 0:
         df = pd.DataFrame(columns=["username", "password"])
         df.to_csv(USERS_FILE, index=False)
 
 def load_users():
-    """
-    Load all users into a DataFrame, handle if file is empty.
-    """
+    """Load all users into a DataFrame, handle if file is empty."""
     ensure_users_csv()
     try:
-        users_df = pd.read_csv(USERS_FILE)
-        # If the CSV is empty or missing columns, re-create it properly
-        if users_df.empty or "username" not in users_df.columns or "password" not in users_df.columns:
+        df = pd.read_csv(USERS_FILE)
+        if df.empty or "username" not in df.columns or "password" not in df.columns:
             ensure_users_csv()
-            users_df = pd.DataFrame(columns=["username", "password"])
-        return users_df
+            return pd.DataFrame(columns=["username", "password"])
+        return df
     except pd.errors.EmptyDataError:
-        # Re-create the CSV with the right columns
         ensure_users_csv()
         return pd.DataFrame(columns=["username", "password"])
 
@@ -61,14 +57,14 @@ def user_exists(username):
 
 def check_credentials(username, password):
     """Validate if the given username/password is correct."""
-    users_df = load_users()
-    row = users_df[(users_df["username"] == username) & (users_df["password"] == password)]
+    df = load_users()
+    row = df[(df["username"] == username) & (df["password"] == password)]
     return not row.empty
 
 # ------------------------ GITHUB DATABASE OPERATIONS ------------------------
 def pull_database():
     """Pull database.csv from GitHub and store locally."""
-    response = requests.get(GITHUB_API_URL, headers=HEADERS)
+    response = requests.get(GITHUB_API_URL, headers={"Authorization": f"token {GITHUB_TOKEN}"})
     if response.status_code == 200:
         file_content = response.json().get("content", "")
         sha = response.json().get("sha", "")
@@ -84,26 +80,40 @@ def pull_database():
         return empty_df, None
 
 def push_database(df, sha=None):
-    """Push the updated database.csv to GitHub."""
+    """Push updated database.csv to GitHub."""
     csv_data = df.to_csv(index=False)
     encoded_content = base64.b64encode(csv_data.encode()).decode()
     if sha:
-        data = {
-            "message": "Update database.csv",
-            "content": encoded_content,
-            "sha": sha
-        }
+        data = {"message": "Update database.csv", "content": encoded_content, "sha": sha}
     else:
-        data = {
-            "message": "Create database.csv",
-            "content": encoded_content
-        }
+        data = {"message": "Create database.csv", "content": encoded_content}
     response = requests.put(GITHUB_API_URL, headers=HEADERS, json=data)
     return response.status_code
 
-# ------------------------ STREAMLIT APP ------------------------
+# ------------------------ COOKIE MANAGER FOR "REMEMBER ME" ------------------------
+# This library requires a config file to store secrets, or you can pass an encryption key
+cookies = EncryptedCookieManager(
+    prefix="civil_eng_app", 
+    password=None
+)
+if not cookies.ready():
+    st.stop()
+
+def get_cookie(key):
+    return cookies.get(key)
+
+def set_cookie(key, value):
+    cookies[key] = value
+    cookies.save()
+
+def clear_cookie(key):
+    if key in cookies:
+        del cookies[key]
+    cookies.save()
+
+# ------------------------ LOGIN/LOGOUT & SIGNUP LOGIC ------------------------
 def sign_up_screen():
-    """Sign Up Page: Create a new account, automatically log in after creation."""
+    """Sign up for a new account; auto-login user."""
     st.title("Create a New Account")
     new_username = st.text_input("Choose a Username", key="signup_username")
     new_password = st.text_input("Choose a Password", type="password", key="signup_password")
@@ -114,19 +124,25 @@ def sign_up_screen():
         elif user_exists(new_username):
             st.error("Username already exists. Please choose a different one.")
         else:
-            # Save new user
+            # Save new user locally
             save_user(new_username, new_password)
-            # Automatically log the user in
+            st.success("Account created! You're now logged in.")
+
+            # Generate a random token for the new user, store it in cookies
+            session_token = str(uuid.uuid4())
+            set_cookie("session_token", session_token)
+
+            # Mark them as logged_in in session_state
             st.session_state["logged_in"] = True
             st.session_state["username"] = new_username
-            st.success("Account created! You're now logged in.")
-            # Turn off sign_up mode
-            st.session_state["sign_up"] = False
+            st.session_state["session_token"] = session_token
+
             st.stop()
 
 def login_screen():
-    """Login Page: Verify existing account."""
+    """Login existing user. If credentials match, store a session token in cookies."""
     st.title("🔒 Login to Civil Engineer Automation Tool")
+
     username = st.text_input("Username", key="login_username")
     password = st.text_input("Password", type="password", key="login_password")
 
@@ -136,6 +152,13 @@ def login_screen():
             if check_credentials(username, password):
                 st.session_state["logged_in"] = True
                 st.session_state["username"] = username
+
+                # Generate new session token
+                session_token = str(uuid.uuid4())
+                st.session_state["session_token"] = session_token
+                # Store in cookie so user remains logged in on reload
+                set_cookie("session_token", session_token)
+
                 st.success("Login successful!")
                 st.stop()
             else:
@@ -145,11 +168,26 @@ def login_screen():
             st.session_state["sign_up"] = True
             st.stop()
 
+def logout():
+    """Clear cookies and session state, forcing user to log in again."""
+    clear_cookie("session_token")
+    st.session_state["logged_in"] = False
+    st.session_state["username"] = None
+    st.session_state["session_token"] = None
+    st.info("Logged out successfully!")
+
+# ------------------------ MAIN APP ------------------------
 def main_app():
     """Main application after successful login."""
     st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide")
 
+    # Attempt to pull database
     st.session_state["db_df"], st.session_state["db_sha"] = pull_database()
+
+    # Logout button
+    if st.button("Logout"):
+        logout()
+        st.stop()
 
     # Render Sidebar
     selected_tab = render_sidebar()
@@ -168,6 +206,7 @@ def main_app():
     elif selected_tab == "Collaboration and Documentation":
         collaboration_documentation.run()
 
+    # Save to GitHub
     st.write("---")
     if st.button("Push Changes to GitHub"):
         local_df = pd.read_csv(DATABASE_FILE) if os.path.exists(DATABASE_FILE) else st.session_state["db_df"]
@@ -177,16 +216,39 @@ def main_app():
         else:
             st.error(f"Failed to push to GitHub. Status code: {status_code}")
 
+def check_cookie_session():
+    """
+    If a valid session token is stored in the cookie, mark the user as logged_in.
+    This runs before the UI to keep the user logged in after reload.
+    """
+    token_in_cookie = get_cookie("session_token")
+    if token_in_cookie and "session_token" in st.session_state:
+        # Compare cookie token with in-memory session token
+        if token_in_cookie == st.session_state["session_token"]:
+            st.session_state["logged_in"] = True
+    elif token_in_cookie and "session_token" not in st.session_state:
+        # If there's a token in cookie but not in session, adopt it
+        # (In a more secure app, you'd track token->username mappings)
+        st.session_state["session_token"] = token_in_cookie
+        st.session_state["logged_in"] = True
+        # We don't know which user though, so you could store user->token in a DB for a robust solution
+
 def run():
-    """Entry point of the app."""
+    # Ensure we have an empty users.csv if not present
     ensure_users_csv()
 
+    # Initialize session vars
     if "logged_in" not in st.session_state:
         st.session_state["logged_in"] = False
     if "sign_up" not in st.session_state:
         st.session_state["sign_up"] = False
+    if "session_token" not in st.session_state:
+        st.session_state["session_token"] = None
 
-    # If not logged in, show login or sign-up screen
+    # Check cookie-based session before showing login screen
+    check_cookie_session()
+
+    # If not logged in, show login or sign-up
     if not st.session_state["logged_in"]:
         if st.session_state["sign_up"]:
             sign_up_screen()
