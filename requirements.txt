@@ -6,3 +6,4 @@ numpy
 plotly
 scipy
 requests
+streamlit-cookies-manager
