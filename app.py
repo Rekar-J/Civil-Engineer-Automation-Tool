@@ -105,7 +105,7 @@ def sign_up_screen():
         else:
             save_user(new_username, new_password)
             st.success("Account created! Please go back to login.")
-            st.stop()
+            st.stop()  # No st.experimental_rerun()
 
 def login_screen():
     st.title("🔒 Login to Civil Engineer Automation Tool")
@@ -119,13 +119,13 @@ def login_screen():
                 st.session_state["logged_in"] = True
                 st.session_state["username"] = username
                 st.success("Login successful!")
-                st.experimental_rerun()
+                st.stop()  # No st.experimental_rerun()
             else:
                 st.error("Invalid username or password.")
     with col2:
         if st.button("Sign Up"):
             st.session_state["sign_up"] = True
-            st.experimental_rerun()
+            st.stop()  # No st.experimental_rerun()
 
 def main_app():
     """Main application after successful login."""
@@ -168,6 +168,7 @@ def run():
     if "sign_up" not in st.session_state:
         st.session_state["sign_up"] = False
 
+    # If not logged in, show login screen or sign-up screen
     if not st.session_state["logged_in"]:
         if st.session_state["sign_up"]:
             sign_up_screen()
