@@ -93,6 +93,7 @@ def push_database(df, sha=None):
 
 # ------------------------ STREAMLIT APP ------------------------
 def sign_up_screen():
+    """Sign Up Page: Create a new account."""
     st.title("Create a New Account")
     new_username = st.text_input("Choose a Username", key="signup_username")
     new_password = st.text_input("Choose a Password", type="password", key="signup_password")
@@ -105,9 +106,11 @@ def sign_up_screen():
         else:
             save_user(new_username, new_password)
             st.success("Account created! Please go back to login.")
-            st.stop()  # No st.experimental_rerun()
+            # Stop execution here; next run will see updated session state
+            st.stop()
 
 def login_screen():
+    """Login Page: Verify existing account."""
     st.title("🔒 Login to Civil Engineer Automation Tool")
     username = st.text_input("Username", key="login_username")
     password = st.text_input("Password", type="password", key="login_password")
@@ -119,17 +122,20 @@ def login_screen():
                 st.session_state["logged_in"] = True
                 st.session_state["username"] = username
                 st.success("Login successful!")
-                st.stop()  # No st.experimental_rerun()
+                # Stop execution so the next run will pick up the new session state
+                st.stop()
             else:
                 st.error("Invalid username or password.")
     with col2:
         if st.button("Sign Up"):
             st.session_state["sign_up"] = True
-            st.stop()  # No st.experimental_rerun()
+            # Stop execution here to reflect new session state
+            st.stop()
 
 def main_app():
     """Main application after successful login."""
     st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide")
+    # Pull database from GitHub
     st.session_state["db_df"], st.session_state["db_sha"] = pull_database()
 
     # Render Sidebar
@@ -149,7 +155,7 @@ def main_app():
     elif selected_tab == "Collaboration and Documentation":
         collaboration_documentation.run()
 
-    # Example of a "Save to GitHub" button to push changes
+    # Example "Save to GitHub" button
     st.write("---")
     if st.button("Push Changes to GitHub"):
         local_df = pd.read_csv(DATABASE_FILE) if os.path.exists(DATABASE_FILE) else st.session_state["db_df"]
@@ -160,15 +166,17 @@ def main_app():
             st.error(f"Failed to push to GitHub. Status code: {status_code}")
 
 def run():
+    """Entry point of the app."""
     # Ensure we have an empty users.csv if not present
     ensure_users_csv()
 
+    # Initialize session variables if not set
     if "logged_in" not in st.session_state:
         st.session_state["logged_in"] = False
     if "sign_up" not in st.session_state:
         st.session_state["sign_up"] = False
 
-    # If not logged in, show login screen or sign-up screen
+    # If not logged in, show login or sign-up screen
     if not st.session_state["logged_in"]:
         if st.session_state["sign_up"]:
             sign_up_screen()
