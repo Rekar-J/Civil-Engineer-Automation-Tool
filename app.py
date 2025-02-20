@@ -4,8 +4,11 @@ import pandas as pd
 import base64
 import requests
 import uuid
-from streamlit_cookies_manager import EncryptedCookieManager
 
+# IMPORTANT: Ensure "streamlit-cookies-manager" is in your requirements.txt
+# pip install streamlit-cookies-manager
+
+from streamlit_cookies_manager import EncryptedCookieManager
 from sidebar import render_sidebar
 from home import run as run_home
 import tabs.design_analysis as design_analysis
@@ -80,22 +83,28 @@ def pull_database():
         return empty_df, None
 
 def push_database(df, sha=None):
-    """Push updated database.csv to GitHub."""
+    """Push the updated database.csv to GitHub."""
     csv_data = df.to_csv(index=False)
     encoded_content = base64.b64encode(csv_data.encode()).decode()
+    data = {
+        "message": "Update database.csv" if sha else "Create database.csv",
+        "content": encoded_content
+    }
     if sha:
-        data = {"message": "Update database.csv", "content": encoded_content, "sha": sha}
-    else:
-        data = {"message": "Create database.csv", "content": encoded_content}
+        data["sha"] = sha
+
     response = requests.put(GITHUB_API_URL, headers=HEADERS, json=data)
     return response.status_code
 
-# ------------------------ COOKIE MANAGER FOR "REMEMBER ME" ------------------------
-# This library requires a config file to store secrets, or you can pass an encryption key
+# ------------------------ COOKIE MANAGER (WITH A PASSWORD) ------------------------
+# Provide a random string as password. In production, store it in secrets or env var.
+COOKIES_PASSWORD = "MY_SUPER_SECRET_PASSWORD_1234"
+
 cookies = EncryptedCookieManager(
     prefix="civil_eng_app", 
-    password=None
+    password=COOKIES_PASSWORD  # <--- Provide a password here
 )
+# If the cookie manager isn't ready, stop execution
 if not cookies.ready():
     st.stop()
 
@@ -163,6 +172,7 @@ def login_screen():
                 st.stop()
             else:
                 st.error("Invalid username or password.")
+
     with col2:
         if st.button("Sign Up"):
             st.session_state["sign_up"] = True
@@ -181,7 +191,6 @@ def main_app():
     """Main application after successful login."""
     st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide")
 
-    # Attempt to pull database
     st.session_state["db_df"], st.session_state["db_sha"] = pull_database()
 
     # Logout button
@@ -206,7 +215,6 @@ def main_app():
     elif selected_tab == "Collaboration and Documentation":
         collaboration_documentation.run()
 
-    # Save to GitHub
     st.write("---")
     if st.button("Push Changes to GitHub"):
         local_df = pd.read_csv(DATABASE_FILE) if os.path.exists(DATABASE_FILE) else st.session_state["db_df"]
@@ -228,16 +236,14 @@ def check_cookie_session():
             st.session_state["logged_in"] = True
     elif token_in_cookie and "session_token" not in st.session_state:
         # If there's a token in cookie but not in session, adopt it
-        # (In a more secure app, you'd track token->username mappings)
         st.session_state["session_token"] = token_in_cookie
         st.session_state["logged_in"] = True
-        # We don't know which user though, so you could store user->token in a DB for a robust solution
+        # If you want to track user -> token, you'd need a real DB approach
 
 def run():
     # Ensure we have an empty users.csv if not present
     ensure_users_csv()
 
-    # Initialize session vars
     if "logged_in" not in st.session_state:
         st.session_state["logged_in"] = False
     if "sign_up" not in st.session_state:
@@ -248,7 +254,6 @@ def run():
     # Check cookie-based session before showing login screen
     check_cookie_session()
 
-    # If not logged in, show login or sign-up
     if not st.session_state["logged_in"]:
         if st.session_state["sign_up"]:
             sign_up_screen()
