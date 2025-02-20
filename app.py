@@ -5,8 +5,8 @@ import base64
 import requests
 import uuid
 
-# IMPORTANT: Ensure "streamlit-cookies-manager" is in your requirements.txt
-# pip install streamlit-cookies-manager
+# Must be the first Streamlit command in your script
+st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide")
 
 from streamlit_cookies_manager import EncryptedCookieManager
 from sidebar import render_sidebar
@@ -86,23 +86,28 @@ def push_database(df, sha=None):
     """Push the updated database.csv to GitHub."""
     csv_data = df.to_csv(index=False)
     encoded_content = base64.b64encode(csv_data.encode()).decode()
-    data = {
-        "message": "Update database.csv" if sha else "Create database.csv",
-        "content": encoded_content
-    }
+
     if sha:
-        data["sha"] = sha
+        data = {
+            "message": "Update database.csv",
+            "content": encoded_content,
+            "sha": sha
+        }
+    else:
+        data = {
+            "message": "Create database.csv",
+            "content": encoded_content
+        }
 
     response = requests.put(GITHUB_API_URL, headers=HEADERS, json=data)
     return response.status_code
 
 # ------------------------ COOKIE MANAGER (WITH A PASSWORD) ------------------------
-# Provide a random string as password. In production, store it in secrets or env var.
 COOKIES_PASSWORD = "MY_SUPER_SECRET_PASSWORD_1234"
 
 cookies = EncryptedCookieManager(
     prefix="civil_eng_app", 
-    password=COOKIES_PASSWORD  # <--- Provide a password here
+    password=COOKIES_PASSWORD
 )
 # If the cookie manager isn't ready, stop execution
 if not cookies.ready():
@@ -165,14 +170,12 @@ def login_screen():
                 # Generate new session token
                 session_token = str(uuid.uuid4())
                 st.session_state["session_token"] = session_token
-                # Store in cookie so user remains logged in on reload
                 set_cookie("session_token", session_token)
 
                 st.success("Login successful!")
                 st.stop()
             else:
                 st.error("Invalid username or password.")
-
     with col2:
         if st.button("Sign Up"):
             st.session_state["sign_up"] = True
@@ -188,9 +191,11 @@ def logout():
 
 # ------------------------ MAIN APP ------------------------
 def main_app():
-    """Main application after successful login."""
-    st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide")
-
+    """
+    Main application after successful login.
+    NOTE: st.set_page_config(...) is at the top, so we do NOT call it here.
+    """
+    # Attempt to pull DB from GitHub
     st.session_state["db_df"], st.session_state["db_sha"] = pull_database()
 
     # Logout button
@@ -226,22 +231,18 @@ def main_app():
 
 def check_cookie_session():
     """
-    If a valid session token is stored in the cookie, mark the user as logged_in.
+    If a valid session token is stored in the cookie, mark user as logged_in.
     This runs before the UI to keep the user logged in after reload.
     """
     token_in_cookie = get_cookie("session_token")
     if token_in_cookie and "session_token" in st.session_state:
-        # Compare cookie token with in-memory session token
         if token_in_cookie == st.session_state["session_token"]:
             st.session_state["logged_in"] = True
     elif token_in_cookie and "session_token" not in st.session_state:
-        # If there's a token in cookie but not in session, adopt it
         st.session_state["session_token"] = token_in_cookie
         st.session_state["logged_in"] = True
-        # If you want to track user -> token, you'd need a real DB approach
 
 def run():
-    # Ensure we have an empty users.csv if not present
     ensure_users_csv()
 
     if "logged_in" not in st.session_state:
