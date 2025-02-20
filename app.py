@@ -22,18 +22,30 @@ HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"}
 USERS_FILE = "users.csv"
 
 def ensure_users_csv():
-    """Initialize an empty users.csv if it doesn't exist."""
-    if not os.path.exists(USERS_FILE):
-        # Create an empty CSV with columns: username, password
+    """
+    Initialize users.csv if it doesn't exist or is empty.
+    Always write headers: username,password
+    """
+    if not os.path.exists(USERS_FILE) or os.path.getsize(USERS_FILE) == 0:
         df = pd.DataFrame(columns=["username", "password"])
         df.to_csv(USERS_FILE, index=False)
 
 def load_users():
-    """Load all users into a DataFrame."""
-    if not os.path.exists(USERS_FILE):
+    """
+    Load all users into a DataFrame, handle if file is empty.
+    """
+    ensure_users_csv()
+    try:
+        users_df = pd.read_csv(USERS_FILE)
+        # If the CSV is empty or missing columns, re-create it properly
+        if users_df.empty or "username" not in users_df.columns or "password" not in users_df.columns:
+            ensure_users_csv()
+            users_df = pd.DataFrame(columns=["username", "password"])
+        return users_df
+    except pd.errors.EmptyDataError:
+        # Re-create the CSV with the right columns
         ensure_users_csv()
         return pd.DataFrame(columns=["username", "password"])
-    return pd.read_csv(USERS_FILE)
 
 def save_user(username, password):
     """Add a new user to the users.csv file."""
@@ -75,7 +87,6 @@ def push_database(df, sha=None):
     """Push the updated database.csv to GitHub."""
     csv_data = df.to_csv(index=False)
     encoded_content = base64.b64encode(csv_data.encode()).decode()
-
     if sha:
         data = {
             "message": "Update database.csv",
@@ -87,7 +98,6 @@ def push_database(df, sha=None):
             "message": "Create database.csv",
             "content": encoded_content
         }
-
     response = requests.put(GITHUB_API_URL, headers=HEADERS, json=data)
     return response.status_code
 
@@ -106,7 +116,6 @@ def sign_up_screen():
         else:
             save_user(new_username, new_password)
             st.success("Account created! Please go back to login.")
-            # Stop execution here; next run will see updated session state
             st.stop()
 
 def login_screen():
@@ -122,20 +131,18 @@ def login_screen():
                 st.session_state["logged_in"] = True
                 st.session_state["username"] = username
                 st.success("Login successful!")
-                # Stop execution so the next run will pick up the new session state
                 st.stop()
             else:
                 st.error("Invalid username or password.")
     with col2:
         if st.button("Sign Up"):
             st.session_state["sign_up"] = True
-            # Stop execution here to reflect new session state
             st.stop()
 
 def main_app():
     """Main application after successful login."""
     st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide")
-    # Pull database from GitHub
+
     st.session_state["db_df"], st.session_state["db_sha"] = pull_database()
 
     # Render Sidebar
@@ -155,7 +162,6 @@ def main_app():
     elif selected_tab == "Collaboration and Documentation":
         collaboration_documentation.run()
 
-    # Example "Save to GitHub" button
     st.write("---")
     if st.button("Push Changes to GitHub"):
         local_df = pd.read_csv(DATABASE_FILE) if os.path.exists(DATABASE_FILE) else st.session_state["db_df"]
@@ -166,17 +172,13 @@ def main_app():
             st.error(f"Failed to push to GitHub. Status code: {status_code}")
 
 def run():
-    """Entry point of the app."""
-    # Ensure we have an empty users.csv if not present
-    ensure_users_csv()
+    ensure_users_csv()  # Make sure users.csv is valid
 
-    # Initialize session variables if not set
     if "logged_in" not in st.session_state:
         st.session_state["logged_in"] = False
     if "sign_up" not in st.session_state:
         st.session_state["sign_up"] = False
 
-    # If not logged in, show login or sign-up screen
     if not st.session_state["logged_in"]:
         if st.session_state["sign_up"]:
             sign_up_screen()
