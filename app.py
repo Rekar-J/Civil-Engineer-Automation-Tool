@@ -103,7 +103,7 @@ def push_database(df, sha=None):
 
 # ------------------------ STREAMLIT APP ------------------------
 def sign_up_screen():
-    """Sign Up Page: Create a new account."""
+    """Sign Up Page: Create a new account, automatically log in after creation."""
     st.title("Create a New Account")
     new_username = st.text_input("Choose a Username", key="signup_username")
     new_password = st.text_input("Choose a Password", type="password", key="signup_password")
@@ -114,8 +114,14 @@ def sign_up_screen():
         elif user_exists(new_username):
             st.error("Username already exists. Please choose a different one.")
         else:
+            # Save new user
             save_user(new_username, new_password)
-            st.success("Account created! Please go back to login.")
+            # Automatically log the user in
+            st.session_state["logged_in"] = True
+            st.session_state["username"] = new_username
+            st.success("Account created! You're now logged in.")
+            # Turn off sign_up mode
+            st.session_state["sign_up"] = False
             st.stop()
 
 def login_screen():
@@ -172,13 +178,15 @@ def main_app():
             st.error(f"Failed to push to GitHub. Status code: {status_code}")
 
 def run():
-    ensure_users_csv()  # Make sure users.csv is valid
+    """Entry point of the app."""
+    ensure_users_csv()
 
     if "logged_in" not in st.session_state:
         st.session_state["logged_in"] = False
     if "sign_up" not in st.session_state:
         st.session_state["sign_up"] = False
 
+    # If not logged in, show login or sign-up screen
     if not st.session_state["logged_in"]:
         if st.session_state["sign_up"]:
             sign_up_screen()
