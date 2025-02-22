@@ -5,47 +5,48 @@ import base64
 import requests
 import uuid
 
-# Must be FIRST Streamlit command
+# --- Must be first Streamlit command ---
 st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide")
 
-# We read your GitHub token from Streamlit secrets
-# Make sure you put GITHUB_TOKEN="your_fine_grained_token" in your secrets.
-GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]  # <--- IMPORTANT
-GITHUB_REPO = "Rekar-J/Civil-Engineer-Automation-Tool"
-
-DATABASE_FILE = "database.csv"
-GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{DATABASE_FILE}"
-
+from streamlit_cookies_manager import EncryptedCookieManager
+from sidebar import render_sidebar
+from home import run as run_home
 import tabs.design_analysis as design_analysis
 import tabs.project_management as project_management
 import tabs.compliance_reporting as compliance_reporting
 import tabs.tools_utilities as tools_utilities
 import tabs.collaboration_documentation as collaboration_documentation
-from sidebar import render_sidebar
-from home import run as run_home
 
-# -------------- USERS CSV (Login + Token) --------------
+# ------------------------ GitHub Details ------------------------
+GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]  # Must be in your Streamlit secrets
+GITHUB_REPO = "Rekar-J/Civil-Engineer-Automation-Tool"
+DATABASE_FILE = "database.csv"
+GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{DATABASE_FILE}"
+
+# ------------------------ Users CSV ------------------------
 USERS_FILE = "users.csv"
 
 def ensure_users_csv():
-    """Create 'users.csv' with columns if missing/empty."""
+    """
+    Create 'users.csv' if missing or empty, with columns: username, password, token
+    """
     if not os.path.exists(USERS_FILE) or os.path.getsize(USERS_FILE) == 0:
-        df = pd.DataFrame(columns=["username", "password", "token"])
+        df = pd.DataFrame(columns=["username","password","token"])
         df.to_csv(USERS_FILE, index=False)
 
 def load_users():
-    """Load users; ensure columns: username, password, token."""
+    """
+    Load users into a DataFrame with columns: username, password, token
+    """
     ensure_users_csv()
     try:
         df = pd.read_csv(USERS_FILE)
-        missing_cols = {"username", "password", "token"} - set(df.columns)
-        if missing_cols:
-            for col in missing_cols:
+        for col in ["username","password","token"]:
+            if col not in df.columns:
                 df[col] = ""
-            df.to_csv(USERS_FILE, index=False)
         return df
     except pd.errors.EmptyDataError:
-        df = pd.DataFrame(columns=["username", "password", "token"])
+        df = pd.DataFrame(columns=["username","password","token"])
         df.to_csv(USERS_FILE, index=False)
         return df
 
@@ -53,6 +54,9 @@ def save_users(df):
     df.to_csv(USERS_FILE, index=False)
 
 def check_credentials(username, password):
+    """
+    Return True if there's a user row matching (username,password).
+    """
     df = load_users()
     row = df[(df["username"] == username) & (df["password"] == password)]
     return not row.empty
@@ -61,36 +65,46 @@ def user_exists(username):
     df = load_users()
     return not df[df["username"] == username].empty
 
-def save_user(username, password):
+def create_user(username, password):
+    """
+    Create a new user row with empty token
+    """
     df = load_users()
-    new_row = pd.DataFrame({"username": [username], "password": [password], "token": [""]})
-    df = pd.concat([df, new_row], ignore_index=True)
+    new_row = pd.DataFrame({"username":[username],"password":[password],"token":[""]})
+    df = pd.concat([df,new_row], ignore_index=True)
     save_users(df)
 
 def set_token_for_user(username, token):
+    """
+    Sets or updates the token for a given user row
+    """
     df = load_users()
     df.loc[df["username"] == username, "token"] = token
     save_users(df)
 
 def find_user_by_token(token):
     df = load_users()
-    match = df[df["token"] == token]
-    if match.empty:
+    row = df[df["token"] == token]
+    if row.empty:
         return None
-    return match.iloc[0]
+    return row.iloc[0]
 
-# -------------- GITHUB Database --------------
+# ------------------------ GitHub Database Ops ------------------------
 def pull_database():
-    resp = requests.get(GITHUB_API_URL, headers={"Authorization": f"token {GITHUB_TOKEN}"})
+    resp = requests.get(
+        GITHUB_API_URL,
+        headers={"Authorization": f"token {GITHUB_TOKEN}"}
+    )
     if resp.status_code == 200:
-        content = resp.json().get("content", "")
-        sha = resp.json().get("sha", "")
+        content = resp.json().get("content","")
+        sha = resp.json().get("sha","")
         decoded = base64.b64decode(content).decode("utf-8")
-        with open(DATABASE_FILE, "w", encoding="utf-8") as f:
+        with open(DATABASE_FILE,"w",encoding="utf-8") as f:
             f.write(decoded)
         df = pd.read_csv(DATABASE_FILE)
         return df, sha
     else:
+        # Create empty
         empty_df = pd.DataFrame(columns=["Tab","SubTab","Data"])
         empty_df.to_csv(DATABASE_FILE, index=False)
         return empty_df, None
@@ -100,18 +114,18 @@ def push_database(df, sha=None):
     encoded = base64.b64encode(csv_data.encode()).decode()
 
     if sha:
-        data = {"message": "Update database.csv","content": encoded,"sha": sha}
+        data = {"message":"Update database.csv","content":encoded,"sha":sha}
     else:
-        data = {"message": "Create database.csv","content": encoded}
-
-    r = requests.put(GITHUB_API_URL, headers={"Authorization": f"token {GITHUB_TOKEN}"}, json=data)
+        data = {"message":"Create database.csv","content":encoded}
+    r = requests.put(
+        GITHUB_API_URL,
+        headers={"Authorization": f"token {GITHUB_TOKEN}"},
+        json=data
+    )
     return r.status_code
 
-# -------------- COOKIE MANAGER --------------
-from streamlit_cookies_manager import EncryptedCookieManager
-
-# You can store password in secrets or code, but we show direct example:
-COOKIES_PASSWORD = "MY_SUPER_SECRET_PASSWORD_1234"  
+# ------------------------ Cookie Manager ------------------------
+COOKIES_PASSWORD = "MY_SUPER_SECRET_PASSWORD_1234"
 cookies = EncryptedCookieManager(prefix="civil_eng_app", password=COOKIES_PASSWORD)
 if not cookies.ready():
     st.stop()
@@ -128,7 +142,7 @@ def clear_cookie(key):
         del cookies[key]
     cookies.save()
 
-# -------------- Login / Logout / Signup --------------
+# ------------------------ Auth Flow: Sign Up, Login, Logout ------------------------
 def sign_up_screen():
     st.title("Create a New Account")
     new_username = st.text_input("Choose a Username", key="signup_username")
@@ -140,28 +154,33 @@ def sign_up_screen():
         elif user_exists(new_username):
             st.error("Username already exists. Please choose a different one.")
         else:
-            save_user(new_username, new_password)
+            create_user(new_username,new_password)
             st.success("Account created! You're now logged in.")
 
+            # Generate random token
             token = str(uuid.uuid4())
             set_token_for_user(new_username, token)
+
+            # Mark user as logged in
             st.session_state["logged_in"] = True
             st.session_state["username"] = new_username
             st.session_state["session_token"] = token
+
+            # Save token in cookie
             set_cookie("session_token", token)
 
             st.stop()
 
 def login_screen():
     st.title("🔒 Login to Civil Engineer Automation Tool")
-
     username = st.text_input("Username", key="login_username")
     password = st.text_input("Password", type="password", key="login_password")
 
-    col1, col2 = st.columns(2)
+    col1,col2 = st.columns(2)
     with col1:
         if st.button("Login"):
-            if check_credentials(username, password):
+            if check_credentials(username,password):
+                # Generate new token
                 token = str(uuid.uuid4())
                 set_token_for_user(username, token)
 
@@ -174,24 +193,27 @@ def login_screen():
                 st.stop()
             else:
                 st.error("Invalid username or password.")
+
     with col2:
         if st.button("Sign Up"):
             st.session_state["sign_up"] = True
             st.stop()
 
 def logout():
+    # If user has a token, remove it from CSV
     if "session_token" in st.session_state and st.session_state["session_token"]:
         df = load_users()
         df.loc[df["token"] == st.session_state["session_token"], "token"] = ""
         save_users(df)
 
+    # Clear cookie
     clear_cookie("session_token")
     st.session_state["logged_in"] = False
     st.session_state["username"] = None
     st.session_state["session_token"] = None
     st.info("Logged out successfully!")
 
-# -------------- MAIN APP --------------
+# ------------------------ Main App & Session Check ------------------------
 def main_app():
     st.session_state["db_df"], st.session_state["db_sha"] = pull_database()
 
@@ -217,16 +239,16 @@ def main_app():
     st.write("---")
     if st.button("Push Changes to GitHub"):
         local_df = pd.read_csv(DATABASE_FILE) if os.path.exists(DATABASE_FILE) else st.session_state["db_df"]
-        status_code = push_database(local_df, sha=st.session_state["db_sha"])
-        if status_code in (200, 201):
+        code = push_database(local_df, sha=st.session_state["db_sha"])
+        if code in (200,201):
             st.success("Database successfully pushed to GitHub!")
         else:
-            st.error(f"Failed to push to GitHub. Status code: {status_code}")
+            st.error(f"Failed to push to GitHub. Status code: {code}")
 
 def check_cookie_session():
     """
-    On reload, if there's a 'session_token' cookie, find the user with that token.
-    If found, log them in automatically.
+    On page reload, if there's a session_token in cookies, find matching user in CSV.
+    If found, auto-login them.
     """
     token_in_cookie = get_cookie("session_token")
     if token_in_cookie:
@@ -236,6 +258,7 @@ def check_cookie_session():
             st.session_state["username"] = user_row["username"]
             st.session_state["session_token"] = token_in_cookie
         else:
+            # No row found, remove invalid cookie
             clear_cookie("session_token")
             st.session_state["logged_in"] = False
             st.session_state["username"] = None
@@ -261,5 +284,5 @@ def run():
     else:
         main_app()
 
-if __name__ == "__main__":
+if __name__=="__main__":
     run()
