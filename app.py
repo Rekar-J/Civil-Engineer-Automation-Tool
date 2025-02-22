@@ -5,7 +5,7 @@ import base64
 import requests
 import uuid
 
-# Must be first Streamlit command
+# Must be the first Streamlit command
 st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide")
 
 from streamlit_cookies_manager import EncryptedCookieManager
@@ -18,24 +18,23 @@ import tabs.tools_utilities as tools_utilities
 import tabs.collaboration_documentation as collaboration_documentation
 
 # ------------------------ GITHUB DETAILS ------------------------
-# We assume you have GITHUB_TOKEN in your Streamlit secrets:
+# We read GITHUB_TOKEN from your Streamlit secrets
 # e.g. secrets.toml or Streamlit Cloud's Secrets:
 # GITHUB_TOKEN="github_pat_..."
 GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
 GITHUB_REPO = "Rekar-J/Civil-Engineer-Automation-Tool"
 
-# Filenames
+# Filenames for local usage
 DATABASE_FILE = "database.csv"
 USERS_FILE = "users.csv"
 
-# GitHub API endpoints for each file
+# GitHub API endpoints
 DATABASE_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{DATABASE_FILE}"
 USERS_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{USERS_FILE}"
 
-# GitHub headers
 HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"}
 
-# ------------------------ Cookie Manager ------------------------
+# ------------------------ COOKIE MANAGER ------------------------
 COOKIES_PASSWORD = "MY_SUPER_SECRET_PASSWORD_1234"
 cookies = EncryptedCookieManager(prefix="civil_eng_app", password=COOKIES_PASSWORD)
 if not cookies.ready():
@@ -75,21 +74,17 @@ def push_database(df, sha=None):
     """Push the updated database.csv to GitHub."""
     csv_data = df.to_csv(index=False)
     encoded = base64.b64encode(csv_data.encode()).decode()
-    data = {
-        "message": "Update database.csv" if sha else "Create database.csv",
-        "content": encoded
-    }
+    data = {"message": "Update database.csv" if sha else "Create database.csv", "content": encoded}
     if sha:
         data["sha"] = sha
-
     r = requests.put(DATABASE_API_URL, headers=HEADERS, json=data)
     return r.status_code
 
 # ------------------------ GITHUB PULL/PUSH: users.csv ------------------------
 def pull_users():
     """
-    Pull users.csv from GitHub, handle potential errors,
-    create an empty file if not found or if there's an error.
+    Pull users.csv from GitHub, create a minimal CSV if 404,
+    then read it safely (catching EmptyDataError).
     """
     resp = requests.get(USERS_API_URL, headers=HEADERS)
     if resp.status_code == 200:
@@ -99,55 +94,36 @@ def pull_users():
         with open(USERS_FILE,"w",encoding="utf-8") as f:
             f.write(decoded)
     else:
-        # If file not found or error, create minimal CSV with columns
+        # If not found or error, create minimal CSV
         with open(USERS_FILE,"w",encoding="utf-8") as f:
             f.write("username,password,token\n")
         sha = None
 
-    # Attempt to read local users.csv
+    # Attempt reading
     try:
         df = pd.read_csv(USERS_FILE)
     except pd.errors.EmptyDataError:
-        # If truly empty or corrupt, re-create
         df = pd.DataFrame(columns=["username","password","token"])
         df.to_csv(USERS_FILE, index=False)
-
     return df, sha
 
 def push_users(df, sha=None):
-    """Push updated users.csv to GitHub."""
+    """
+    Push updated users.csv to GitHub.
+    Return the response status code.
+    """
     csv_data = df.to_csv(index=False)
     encoded = base64.b64encode(csv_data.encode()).decode()
-    data = {
-        "message": "Update users.csv" if sha else "Create users.csv",
-        "content": encoded
-    }
+    data = {"message": "Update users.csv" if sha else "Create users.csv", "content": encoded}
     if sha:
         data["sha"] = sha
 
     r = requests.put(USERS_API_URL, headers=HEADERS, json=data)
     return r.status_code
 
-# -------------- Memory Copy of `users.csv` for faster ops --------------
+# -------------- In-memory usage for users.csv --------------
 USERS_DF = pd.DataFrame(columns=["username","password","token"])
 USERS_SHA = None
-
-def load_users_local():
-    """Return a copy of the in-memory DataFrame for users."""
-    global USERS_DF
-    return USERS_DF.copy()
-
-def save_users_local(df):
-    """
-    Overwrite in-memory + push changes to GitHub.
-    """
-    global USERS_DF, USERS_SHA
-    USERS_DF = df.copy()
-    status = push_users(USERS_DF, sha=USERS_SHA)
-    if status in (200,201):
-        st.success("users.csv updated in GitHub successfully.")
-    else:
-        st.error(f"Failed to push users.csv to GitHub. Status: {status}")
 
 def ensure_columns(df):
     for c in ["username","password","token"]:
@@ -157,7 +133,8 @@ def ensure_columns(df):
 
 def pull_users_init():
     """
-    Pull users.csv from GitHub at startup, store in memory.
+    Pull users.csv from GitHub at startup, store in memory,
+    so ephemeral container always has the latest data.
     """
     global USERS_DF, USERS_SHA
     df, sha = pull_users()
@@ -165,34 +142,52 @@ def pull_users_init():
     USERS_DF = df.copy()
     USERS_SHA = sha
 
-# -------------- Basic user mgmt --------------
+def load_users_local():
+    return USERS_DF.copy()
+
+def save_users_local(df):
+    """
+    Overwrite in-memory + push changes to GitHub.
+    To avoid '409 Conflict', re-pull after a successful push
+    to get the new sha.
+    """
+    global USERS_DF, USERS_SHA
+    USERS_DF = df.copy()
+    code = push_users(USERS_DF, USERS_SHA)
+    if code in (200,201):
+        st.success("users.csv updated in GitHub successfully.")
+        # Re-pull to refresh the sha so we never get stale
+        new_df, new_sha = pull_users()
+        new_df = ensure_columns(new_df)
+        USERS_DF = new_df.copy()
+        USERS_SHA = new_sha
+    else:
+        st.error(f"Failed to push users.csv to GitHub. Status: {code}")
+
+# -------------- Basic user management --------------
 def user_exists(username):
     df = load_users_local()
-    return not df[df["username"] == username].empty
+    return not df[df["username"]==username].empty
 
-def check_credentials(username,password):
+def check_credentials(username, password):
     df = load_users_local()
     row = df[(df["username"]==username) & (df["password"]==password)]
     return not row.empty
 
-def create_user(username,password):
+def create_user(username, password):
     df = load_users_local()
-    new_row = pd.DataFrame({
-        "username":[username],
-        "password":[password],
-        "token":[""]
-    })
-    df = pd.concat([df,new_row], ignore_index=True)
+    new_row = pd.DataFrame({"username":[username],"password":[password],"token":[""]})
+    df = pd.concat([df, new_row], ignore_index=True)
     save_users_local(df)
 
 def set_token_for_user(username, token):
     df = load_users_local()
-    df.loc[df["username"]==username,"token"] = token
+    df.loc[df["username"]==username,"token"]=token
     save_users_local(df)
 
 def find_user_by_token(token):
     df = load_users_local()
-    row = df[df["token"] == token]
+    row = df[df["token"]==token]
     if row.empty:
         return None
     return row.iloc[0]
@@ -202,7 +197,7 @@ def clear_token(token):
     df.loc[df["token"]==token,"token"]=""
     save_users_local(df)
 
-# -------------- Login/Logout/Sign-up Flow --------------
+# -------------- Login/Logout/SignUp Flow --------------
 def sign_up_screen():
     st.title("Create a New Account")
     new_username = st.text_input("Choose a Username", key="signup_username")
@@ -214,17 +209,16 @@ def sign_up_screen():
         elif user_exists(new_username):
             st.error("Username already exists. Please choose a different one.")
         else:
-            create_user(new_username,new_password)
+            create_user(new_username, new_password)
             st.success("Account created! You're now logged in.")
 
-            # Generate random token
-            tok = str(uuid.uuid4())
-            set_token_for_user(new_username, tok)
+            token = str(uuid.uuid4())
+            set_token_for_user(new_username, token)
 
             st.session_state["logged_in"] = True
             st.session_state["username"] = new_username
-            st.session_state["session_token"] = tok
-            set_cookie("session_token", tok)
+            st.session_state["session_token"] = token
+            set_cookie("session_token", token)
             st.stop()
 
 def login_screen():
@@ -235,15 +229,13 @@ def login_screen():
     col1,col2 = st.columns(2)
     with col1:
         if st.button("Login"):
-            if check_credentials(username,password):
-                tok = str(uuid.uuid4())
-                set_token_for_user(username,tok)
-
+            if check_credentials(username, password):
+                token = str(uuid.uuid4())
+                set_token_for_user(username, token)
                 st.session_state["logged_in"] = True
                 st.session_state["username"] = username
-                st.session_state["session_token"] = tok
-                set_cookie("session_token", tok)
-
+                st.session_state["session_token"] = token
+                set_cookie("session_token", token)
                 st.success("Login successful!")
                 st.stop()
             else:
@@ -254,7 +246,7 @@ def login_screen():
             st.stop()
 
 def logout():
-    if "session_token" in st.session_state:
+    if "session_token" in st.session_state and st.session_state["session_token"]:
         clear_token(st.session_state["session_token"])
     clear_cookie("session_token")
     st.session_state["logged_in"] = False
@@ -309,10 +301,10 @@ def check_cookie_session():
             st.session_state["session_token"] = None
 
 def run():
-    # 1) Pull users.csv from GitHub
+    # 1) Pull users.csv from GitHub at startup
     pull_users_init()
 
-    # 2) Initialize session vars
+    # 2) Initialize session
     if "logged_in" not in st.session_state:
         st.session_state["logged_in"] = False
     if "sign_up" not in st.session_state:
@@ -320,7 +312,7 @@ def run():
     if "session_token" not in st.session_state:
         st.session_state["session_token"] = None
 
-    # 3) Check cookies
+    # 3) Check cookie
     check_cookie_session()
 
     # 4) Show login or main app
