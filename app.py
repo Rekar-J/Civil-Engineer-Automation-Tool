@@ -5,30 +5,26 @@ import base64
 import requests
 import uuid
 
-# Must be the first Streamlit command
 st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide")
 
 from streamlit_cookies_manager import EncryptedCookieManager
 from sidebar import render_sidebar
-from home import run as run_home
+# We'll import the tabs, but we'll modify them to call back into app.py to do the pushing:
 import tabs.design_analysis as design_analysis
 import tabs.project_management as project_management
-import tabs.compliance_reporting as compliance_reporting
+import tabs.compliance_reporting as compliance_reporting  # We skip auto-push here
 import tabs.tools_utilities as tools_utilities
 import tabs.collaboration_documentation as collaboration_documentation
+from home import run as run_home
 
 # ------------------------ GITHUB DETAILS ------------------------
-# We read GITHUB_TOKEN from your Streamlit secrets
-# e.g. secrets.toml or Streamlit Cloud's Secrets:
-# GITHUB_TOKEN="github_pat_..."
 GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
 GITHUB_REPO = "Rekar-J/Civil-Engineer-Automation-Tool"
 
-# Filenames for local usage
 DATABASE_FILE = "database.csv"
 USERS_FILE = "users.csv"
+HOME_BANNER_PATH = "uploads/home header image.jpg"
 
-# GitHub API endpoints
 DATABASE_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{DATABASE_FILE}"
 USERS_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{USERS_FILE}"
 
@@ -42,11 +38,9 @@ if not cookies.ready():
 
 def get_cookie(key):
     return cookies.get(key)
-
 def set_cookie(key, value):
     cookies[key] = value
     cookies.save()
-
 def clear_cookie(key):
     if key in cookies:
         del cookies[key]
@@ -54,7 +48,6 @@ def clear_cookie(key):
 
 # ------------------------ GITHUB PULL/PUSH: database.csv ------------------------
 def pull_database():
-    """Pull database.csv from GitHub and store locally."""
     resp = requests.get(DATABASE_API_URL, headers=HEADERS)
     if resp.status_code == 200:
         content = resp.json().get("content","")
@@ -65,16 +58,17 @@ def pull_database():
         df = pd.read_csv(DATABASE_FILE)
         return df, sha
     else:
-        # If not found or error, create empty
         df = pd.DataFrame(columns=["Tab","SubTab","Data"])
         df.to_csv(DATABASE_FILE, index=False)
         return df, None
 
 def push_database(df, sha=None):
-    """Push the updated database.csv to GitHub."""
     csv_data = df.to_csv(index=False)
     encoded = base64.b64encode(csv_data.encode()).decode()
-    data = {"message": "Update database.csv" if sha else "Create database.csv", "content": encoded}
+    data = {
+        "message": "Update database.csv" if sha else "Create database.csv",
+        "content": encoded
+    }
     if sha:
         data["sha"] = sha
     r = requests.put(DATABASE_API_URL, headers=HEADERS, json=data)
@@ -82,10 +76,6 @@ def push_database(df, sha=None):
 
 # ------------------------ GITHUB PULL/PUSH: users.csv ------------------------
 def pull_users():
-    """
-    Pull users.csv from GitHub, create a minimal CSV if 404,
-    then read it safely (catching EmptyDataError).
-    """
     resp = requests.get(USERS_API_URL, headers=HEADERS)
     if resp.status_code == 200:
         content = resp.json().get("content","")
@@ -94,12 +84,10 @@ def pull_users():
         with open(USERS_FILE,"w",encoding="utf-8") as f:
             f.write(decoded)
     else:
-        # If not found or error, create minimal CSV
         with open(USERS_FILE,"w",encoding="utf-8") as f:
             f.write("username,password,token\n")
         sha = None
 
-    # Attempt reading
     try:
         df = pd.read_csv(USERS_FILE)
     except pd.errors.EmptyDataError:
@@ -108,16 +96,11 @@ def pull_users():
     return df, sha
 
 def push_users(df, sha=None):
-    """
-    Push updated users.csv to GitHub.
-    Return the response status code.
-    """
     csv_data = df.to_csv(index=False)
     encoded = base64.b64encode(csv_data.encode()).decode()
     data = {"message": "Update users.csv" if sha else "Create users.csv", "content": encoded}
     if sha:
         data["sha"] = sha
-
     r = requests.put(USERS_API_URL, headers=HEADERS, json=data)
     return r.status_code
 
@@ -132,10 +115,6 @@ def ensure_columns(df):
     return df
 
 def pull_users_init():
-    """
-    Pull users.csv from GitHub at startup, store in memory,
-    so ephemeral container always has the latest data.
-    """
     global USERS_DF, USERS_SHA
     df, sha = pull_users()
     df = ensure_columns(df)
@@ -146,17 +125,12 @@ def load_users_local():
     return USERS_DF.copy()
 
 def save_users_local(df):
-    """
-    Overwrite in-memory + push changes to GitHub.
-    To avoid '409 Conflict', re-pull after a successful push
-    to get the new sha.
-    """
     global USERS_DF, USERS_SHA
     USERS_DF = df.copy()
     code = push_users(USERS_DF, USERS_SHA)
     if code in (200,201):
         st.success("users.csv updated in GitHub successfully.")
-        # Re-pull to refresh the sha so we never get stale
+        # Re-pull to refresh sha
         new_df, new_sha = pull_users()
         new_df = ensure_columns(new_df)
         USERS_DF = new_df.copy()
@@ -214,7 +188,6 @@ def sign_up_screen():
 
             token = str(uuid.uuid4())
             set_token_for_user(new_username, token)
-
             st.session_state["logged_in"] = True
             st.session_state["username"] = new_username
             st.session_state["session_token"] = token
@@ -254,37 +227,130 @@ def logout():
     st.session_state["session_token"] = None
     st.info("Logged out successfully!")
 
-# -------------- Main App --------------
-def main_app():
-    # Pull database.csv
-    st.session_state["db_df"], st.session_state["db_sha"] = pull_database()
+# ----------------- Save Logic for Automatic GitHub push in tabs -----------------
+def save_home_banner_to_github():
+    # We'll store the home banner in your "database.csv" or a separate place.
+    # For demonstration, let's say we do a 'home_image' row in database.csv
+    # Then we push database.csv.
+    # You could store the actual base64 image if you want, but for simplicity let's store a text pointer.
 
-    if st.button("Logout"):
-        logout()
-        st.stop()
+    # 1) Read local database
+    df, sha = pull_database()
+    # 2) Add or update row for 'home_banner'
+    row_idx = df.index[df["Tab"]=="HomeBanner"].tolist()
+    if not row_idx:
+        # no row found
+        new_row = pd.DataFrame({"Tab":["HomeBanner"], "SubTab":[""], "Data":[f"banner updated: {uuid.uuid4()}"]})
+        df = pd.concat([df,new_row], ignore_index=True)
+    else:
+        df.loc[row_idx[0],"Data"] = f"banner updated: {uuid.uuid4()}"
+    # 3) push
+    code = push_database(df, sha)
+    if code in (200,201):
+        st.success("Home banner changes pushed to GitHub!")
+    else:
+        st.error(f"Failed to push. code {code}")
 
-    sel = render_sidebar()
-    if sel == "Home":
-        run_home()
-    elif sel == "Design and Analysis":
-        design_analysis.run()
-    elif sel == "Project Management":
-        project_management.run()
-    elif sel == "Compliance and Reporting":
-        compliance_reporting.run()
-    elif sel == "Tools and Utilities":
-        tools_utilities.run()
-    elif sel == "Collaboration and Documentation":
-        collaboration_documentation.run()
+def save_structural_analysis_to_github():
+    # For demonstration, we convert the st.session_state.structural_data to CSV and store in database.csv
+    df, sha = pull_database()
+    # let's store it in a row where Tab='DesignAnalysis', SubTab='Structural'
+    data_str = st.session_state.structural_data.to_csv(index=False)
+    row_idx = df.index[(df["Tab"]=="DesignAnalysis") & (df["SubTab"]=="Structural")].tolist()
+    if not row_idx:
+        new_row = pd.DataFrame({"Tab":["DesignAnalysis"],"SubTab":["Structural"],"Data":[data_str]})
+        df = pd.concat([df,new_row], ignore_index=True)
+    else:
+        df.loc[row_idx[0],"Data"] = data_str
 
-    st.write("---")
-    if st.button("Push Changes to GitHub"):
-        local_df = pd.read_csv(DATABASE_FILE) if os.path.exists(DATABASE_FILE) else st.session_state["db_df"]
-        code = push_database(local_df, sha=st.session_state["db_sha"])
-        if code in (200,201):
-            st.success("Database successfully pushed to GitHub!")
+    code = push_database(df, sha)
+    if code in (200,201):
+        st.success("Structural Analysis changes pushed to GitHub!")
+    else:
+        st.error(f"Failed to push. code {code}")
+
+def save_project_management_to_github():
+    # We'll store scheduling_data, resource_data, progress_data in database.csv
+    df, sha = pull_database()
+    # scheduling
+    if "scheduling_data" in st.session_state:
+        sched_csv = st.session_state.scheduling_data.to_csv(index=False)
+        row_idx = df.index[(df["Tab"]=="ProjectManagement") & (df["SubTab"]=="Scheduling")].tolist()
+        if not row_idx:
+            new_row = pd.DataFrame({"Tab":["ProjectManagement"],"SubTab":["Scheduling"],"Data":[sched_csv]})
+            df = pd.concat([df,new_row], ignore_index=True)
         else:
-            st.error(f"Failed to push to GitHub. Status code: {code}")
+            df.loc[row_idx[0],"Data"] = sched_csv
+    # resource_data
+    if "resource_data" in st.session_state:
+        res_csv = st.session_state.resource_data.to_csv(index=False)
+        row_idx = df.index[(df["Tab"]=="ProjectManagement") & (df["SubTab"]=="Resource")].tolist()
+        if not row_idx:
+            new_row = pd.DataFrame({"Tab":["ProjectManagement"],"SubTab":["Resource"],"Data":[res_csv]})
+            df = pd.concat([df,new_row], ignore_index=True)
+        else:
+            df.loc[row_idx[0],"Data"] = res_csv
+    # progress_data
+    if "progress_data" in st.session_state:
+        prog_csv = st.session_state.progress_data.to_csv(index=False)
+        row_idx = df.index[(df["Tab"]=="ProjectManagement") & (df["SubTab"]=="Progress")].tolist()
+        if not row_idx:
+            new_row = pd.DataFrame({"Tab":["ProjectManagement"],"SubTab":["Progress"],"Data":[prog_csv]})
+            df = pd.concat([df,new_row], ignore_index=True)
+        else:
+            df.loc[row_idx[0],"Data"] = prog_csv
+
+    code = push_database(df, sha)
+    if code in (200,201):
+        st.success("Project Management data pushed to GitHub!")
+    else:
+        st.error(f"Failed to push. code {code}")
+
+def save_tools_utilities_to_github():
+    # We'll store cost_estimation_data, etc.
+    df, sha = pull_database()
+    if "cost_estimation_data" in st.session_state:
+        cost_csv = st.session_state.cost_estimation_data.to_csv(index=False)
+        row_idx = df.index[(df["Tab"]=="ToolsUtilities") & (df["SubTab"]=="CostEstimation")].tolist()
+        if not row_idx:
+            new_row = pd.DataFrame({"Tab":["ToolsUtilities"],"SubTab":["CostEstimation"],"Data":[cost_csv]})
+            df = pd.concat([df,new_row], ignore_index=True)
+        else:
+            df.loc[row_idx[0],"Data"] = cost_csv
+
+    code = push_database(df, sha)
+    if code in (200,201):
+        st.success("Tools & Utilities data pushed to GitHub!")
+    else:
+        st.error(f"Failed to push. code {code}")
+
+def save_collaboration_docs_to_github():
+    # We'll store document_data from session_state
+    df, sha = pull_database()
+    if "document_data" in st.session_state:
+        docs_csv = st.session_state.document_data.to_csv(index=False)
+        row_idx = df.index[(df["Tab"]=="CollaborationDocs") & (df["SubTab"]=="Documents")].tolist()
+        if not row_idx:
+            new_row = pd.DataFrame({"Tab":["CollaborationDocs"],"SubTab":["Documents"],"Data":[docs_csv]})
+            df = pd.concat([df,new_row], ignore_index=True)
+        else:
+            df.loc[row_idx[0],"Data"] = docs_csv
+
+    code = push_database(df, sha)
+    if code in (200,201):
+        st.success("Collaboration & Docs data pushed to GitHub!")
+    else:
+        st.error(f"Failed to push. code {code}")
+# ----------------------------------------------------------------
+
+def logout():
+    if "session_token" in st.session_state and st.session_state["session_token"]:
+        clear_token(st.session_state["session_token"])
+    clear_cookie("session_token")
+    st.session_state["logged_in"] = False
+    st.session_state["username"] = None
+    st.session_state["session_token"] = None
+    st.info("Logged out successfully!")
 
 def check_cookie_session():
     tok = get_cookie("session_token")
@@ -300,11 +366,58 @@ def check_cookie_session():
             st.session_state["username"] = None
             st.session_state["session_token"] = None
 
-def run():
-    # 1) Pull users.csv from GitHub at startup
-    pull_users_init()
+def main_app():
+    # We always pull database here
+    st.session_state["db_df"], st.session_state["db_sha"] = pull_database()
 
-    # 2) Initialize session
+    if st.button("Logout"):
+        logout()
+        st.stop()
+
+    selected_tab = render_sidebar()
+    if selected_tab == "Home":
+        run_home()
+        # Add a "Save to GitHub" button for the banner
+        if st.button("Save Home Banner to GitHub"):
+            save_home_banner_to_github()
+
+    elif selected_tab == "Design and Analysis":
+        design_analysis.run()
+        # sub tab "Structural Analysis" auto
+        if st.button("Save Structural Analysis to GitHub"):
+            save_structural_analysis_to_github()
+
+    elif selected_tab == "Project Management":
+        project_management.run()
+        if st.button("Save Project Management to GitHub"):
+            save_project_management_to_github()
+
+    elif selected_tab == "Compliance and Reporting":
+        compliance_reporting.run()
+        st.info("No auto-push for compliance tab as requested.")
+
+    elif selected_tab == "Tools and Utilities":
+        tools_utilities.run()
+        if st.button("Save Tools & Utilities to GitHub"):
+            save_tools_utilities_to_github()
+
+    elif selected_tab == "Collaboration and Documentation":
+        collaboration_documentation.run()
+        if st.button("Save Collaboration Docs to GitHub"):
+            save_collaboration_docs_to_github()
+
+    st.write("---")
+    if st.button("Push Changes to GitHub (database.csv)"):
+        # If you want a global push for database.csv
+        local_df = pd.read_csv(DATABASE_FILE) if os.path.exists(DATABASE_FILE) else st.session_state["db_df"]
+        code = push_database(local_df, sha=st.session_state["db_sha"])
+        if code in (200,201):
+            st.success("database.csv successfully pushed to GitHub!")
+        else:
+            st.error(f"Failed to push database.csv. Status code: {code}")
+
+def run():
+    pull_users_init()  # load users from GitHub
     if "logged_in" not in st.session_state:
         st.session_state["logged_in"] = False
     if "sign_up" not in st.session_state:
@@ -312,11 +425,10 @@ def run():
     if "session_token" not in st.session_state:
         st.session_state["session_token"] = None
 
-    # 3) Check cookie
     check_cookie_session()
 
-    # 4) Show login or main app
     if not st.session_state["logged_in"]:
+        # Show login or signup
         if st.session_state["sign_up"]:
             sign_up_screen()
         else:
