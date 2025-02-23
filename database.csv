@@ -4,3 +4,7 @@ Design and Analysis,Structural Analysis,"{""Load Type"": ""Live Load"", ""Load V
 Project Management,Scheduling,"{""Task"": ""Site Inspection"", ""Start Date"": ""2025-03-01"", ""End Date"": ""2025-03-10""}"
 Compliance and Reporting,Standards Verification,"{""Requirement"": ""Building Code ACI 318"", ""Status"": ""Pass""}"
 Tools and Utilities,Quantity Takeoff & Cost Estimation,"{""Material"": ""Concrete"", ""Unit Price"": 120, ""Quantity"": 50, ""Unit"": ""m³"", ""Currency"": ""USD"", ""Total Cost"": 6000}"
+ToolsUtilities,CostEstimation,"Material,Unit Price,Quantity,Unit,Total Cost,Currency,Notes
+Concrete,60000.0,27,m³,1620000.0,USD ($),
+Concrete,60000.0,35,m³,2100000.0,USD ($),
+"
