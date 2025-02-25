@@ -1,9 +1,8 @@
 import streamlit as st
 import os
 import pandas as pd
-import base64
-import requests
 import uuid
+import base64
 
 # Must be the first Streamlit command
 st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide")
@@ -17,20 +16,21 @@ import tabs.compliance_reporting as compliance_reporting
 import tabs.tools_utilities as tools_utilities
 import tabs.collaboration_documentation as collaboration_documentation
 
-# ------------------------ GITHUB DETAILS ------------------------
-GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
-GITHUB_REPO = "Rekar-J/Civil-Engineer-Automation-Tool"
+# ---- We import push/pull from pushpull.py ----
+from pushpull import (
+    pull_database, push_database,
+    pull_users, push_users,
+    DATABASE_FILE, USERS_FILE
+)
 
-DATABASE_FILE = "database.csv"
-USERS_FILE = "users.csv"
 HOME_BANNER_PATH = "uploads/home header image.jpg"
 
-DATABASE_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{DATABASE_FILE}"
-USERS_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{USERS_FILE}"
+# -------------- In-memory usage for users.csv --------------
+USERS_DF = pd.DataFrame(columns=["username","password","token"])
+USERS_SHA = None
 
-HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"}
+DATABASE_DF = pd.DataFrame()  # We'll store DB in session_state, or we can do so here
 
-# ------------------------ COOKIE MANAGER ------------------------
 COOKIES_PASSWORD = "MY_SUPER_SECRET_PASSWORD_1234"
 cookies = EncryptedCookieManager(prefix="civil_eng_app", password=COOKIES_PASSWORD)
 if not cookies.ready():
@@ -46,67 +46,6 @@ def clear_cookie(key):
         del cookies[key]
     cookies.save()
 
-# ------------------------ GITHUB PULL/PUSH: database.csv ------------------------
-def pull_database():
-    resp = requests.get(DATABASE_API_URL, headers=HEADERS)
-    if resp.status_code == 200:
-        content = resp.json().get("content","")
-        sha = resp.json().get("sha","")
-        decoded = base64.b64decode(content).decode("utf-8")
-        with open(DATABASE_FILE,"w",encoding="utf-8") as f:
-            f.write(decoded)
-        df = pd.read_csv(DATABASE_FILE)
-        return df, sha
-    else:
-        df = pd.DataFrame(columns=["Tab","SubTab","Data"])
-        df.to_csv(DATABASE_FILE, index=False)
-        return df, None
-
-def push_database(df, sha=None):
-    csv_data = df.to_csv(index=False)
-    encoded = base64.b64encode(csv_data.encode()).decode()
-    data = {
-        "message": "Update database.csv" if sha else "Create database.csv",
-        "content": encoded
-    }
-    if sha:
-        data["sha"] = sha
-    r = requests.put(DATABASE_API_URL, headers=HEADERS, json=data)
-    return r.status_code
-
-# ------------------------ GITHUB PULL/PUSH: users.csv ------------------------
-def pull_users():
-    resp = requests.get(USERS_API_URL, headers=HEADERS)
-    if resp.status_code == 200:
-        content = resp.json().get("content","")
-        sha = resp.json().get("sha","")
-        decoded = base64.b64decode(content).decode("utf-8")
-        with open(USERS_FILE,"w",encoding="utf-8") as f:
-            f.write(decoded)
-    else:
-        with open(USERS_FILE,"w",encoding="utf-8") as f:
-            f.write("username,password,token\n")
-        sha = None
-    try:
-        df = pd.read_csv(USERS_FILE)
-    except pd.errors.EmptyDataError:
-        df = pd.DataFrame(columns=["username","password","token"])
-        df.to_csv(USERS_FILE, index=False)
-    return df, sha
-
-def push_users(df, sha=None):
-    csv_data = df.to_csv(index=False)
-    encoded = base64.b64encode(csv_data.encode()).decode()
-    data = {"message": "Update users.csv" if sha else "Create users.csv", "content": encoded}
-    if sha:
-        data["sha"] = sha
-    r = requests.put(USERS_API_URL, headers=HEADERS, json=data)
-    return r.status_code
-
-# -------------- In-memory usage for users.csv --------------
-USERS_DF = pd.DataFrame(columns=["username","password","token"])
-USERS_SHA = None
-
 def ensure_columns(df):
     for c in ["username","password","token"]:
         if c not in df.columns:
@@ -114,6 +53,9 @@ def ensure_columns(df):
     return df
 
 def pull_users_init():
+    """
+    Pull users.csv from GitHub at app startup, store in memory.
+    """
     global USERS_DF, USERS_SHA
     df, sha = pull_users()
     df = ensure_columns(df)
@@ -135,7 +77,6 @@ def save_users_local(df):
     else:
         pass
 
-# -------------- Basic user management --------------
 def user_exists(username):
     df = load_users_local()
     return not df[df["username"]==username].empty
@@ -168,7 +109,6 @@ def clear_token(token):
     df.loc[df["token"]==token,"token"]=""
     save_users_local(df)
 
-# -------------- Login/Logout/SignUp Flow --------------
 def sign_up_screen():
     st.title("Create a New Account")
     new_username = st.text_input("Choose a Username", key="signup_username")
@@ -176,12 +116,11 @@ def sign_up_screen():
 
     if st.button("Sign Up"):
         if not new_username or not new_password:
-            st.stop()  # no message
+            st.stop()
         elif user_exists(new_username):
-            st.stop()  # no message
+            st.stop()
         else:
             create_user(new_username, new_password)
-            # set token
             token = str(uuid.uuid4())
             set_token_for_user(new_username, token)
             st.session_state["logged_in"] = True
@@ -221,12 +160,15 @@ def logout():
 
 # --- Banner Storage in database.csv as base64 so it persists ---
 def sync_home_banner_after_pull():
+    """
+    Called after we do pull_database().
+    If there's a row with Tab='HomeBanner', decode it into 'uploads/home header image.jpg'.
+    """
     if not os.path.exists("uploads"):
         os.makedirs("uploads")
 
     if "db_df" in st.session_state and st.session_state["db_df"] is not None:
         df = st.session_state["db_df"]
-        # rename from "HomeBannerImage" to "HomeBanner" for clarity
         row_idx = df.index[df["Tab"]=="HomeBanner"].tolist()
         if row_idx:
             b64_str = df.loc[row_idx[0],"Data"]
@@ -240,7 +182,7 @@ def sync_home_banner_after_pull():
 
 def save_home_banner_to_github():
     """
-    If the user updated the local 'uploads/home header image.jpg', we store it in database.csv row Tab='HomeBanner'.
+    If 'uploads/home header image.jpg' changed, store it in database.csv row Tab='HomeBanner'.
     """
     if not os.path.exists(HOME_BANNER_PATH):
         return
@@ -248,6 +190,7 @@ def save_home_banner_to_github():
         img_bin = f.read()
     b64_str = base64.b64encode(img_bin).decode()
 
+    from pushpull import pull_database, push_database
     df, sha = pull_database()
     row_idx = df.index[df["Tab"]=="HomeBanner"].tolist()
     if not row_idx:
@@ -259,6 +202,7 @@ def save_home_banner_to_github():
     push_database(df, sha)
 
 def save_structural_analysis_to_github():
+    from pushpull import pull_database, push_database
     if "structural_data" not in st.session_state:
         return
     df, sha = pull_database()
@@ -272,6 +216,7 @@ def save_structural_analysis_to_github():
     push_database(df, sha)
 
 def save_project_management_to_github():
+    from pushpull import pull_database, push_database
     df, sha = pull_database()
     if "scheduling_data" in st.session_state:
         sched_csv = st.session_state.scheduling_data.to_csv(index=False)
@@ -300,6 +245,7 @@ def save_project_management_to_github():
     push_database(df, sha)
 
 def save_tools_utilities_to_github():
+    from pushpull import pull_database, push_database
     df, sha = pull_database()
     if "cost_estimation_data" in st.session_state:
         cost_csv = st.session_state.cost_estimation_data.to_csv(index=False)
@@ -312,6 +258,7 @@ def save_tools_utilities_to_github():
     push_database(df, sha)
 
 def save_collaboration_docs_to_github():
+    from pushpull import pull_database, push_database
     df, sha = pull_database()
     if "document_data" in st.session_state:
         docs_csv = st.session_state.document_data.to_csv(index=False)
@@ -324,7 +271,11 @@ def save_collaboration_docs_to_github():
     push_database(df, sha)
 
 def main_app():
-    st.session_state["db_df"], st.session_state["db_sha"] = pull_database()
+    from pushpull import pull_database
+    db_df, db_sha = pull_database()
+    st.session_state["db_df"] = db_df
+    st.session_state["db_sha"] = db_sha
+
     sync_home_banner_after_pull()
 
     if st.button("Logout"):
@@ -353,7 +304,6 @@ def main_app():
 
     elif selected_tab == "Compliance and Reporting":
         compliance_reporting.run()
-        # no push
 
     elif selected_tab == "Tools and Utilities":
         tools_utilities.run()
