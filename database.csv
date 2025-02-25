@@ -9,3 +9,7 @@ Concrete,57000.0,34,m³,1938000.0,USD ($),
 Concrete,57000.0,43,m³,2451000.0,USD ($),
 "
 HomeBanner,,banner updated: 0f8ef0c4-a910-48ca-be86-780fc80e6e17
+DesignAnalysis,Structural,"Load Type,Load Value (kN)
+Wind Load,100
+Dead Load,200
+"
