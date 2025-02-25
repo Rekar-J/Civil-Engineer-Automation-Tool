@@ -104,7 +104,6 @@ def push_users(df, sha=None):
     data = {"message": "Update users.csv" if sha else "Create users.csv", "content": encoded}
     if sha:
         data["sha"] = sha
-
     r = requests.put(USERS_API_URL, headers=HEADERS, json=data)
     return r.status_code
 
@@ -133,13 +132,14 @@ def save_users_local(df):
     USERS_DF = df.copy()
     code = push_users(USERS_DF, USERS_SHA)
     if code in (200,201):
-        st.success("users.csv updated in GitHub successfully.")
+        # no chatty success messages
         new_df, new_sha = pull_users()
         new_df = ensure_columns(new_df)
         USERS_DF = new_df.copy()
         USERS_SHA = new_sha
     else:
-        st.error(f"Failed to push users.csv to GitHub. Status: {code}")
+        # no error message to user
+        pass
 
 # -------------- Basic user management --------------
 def user_exists(username):
@@ -175,6 +175,7 @@ def clear_token(token):
     save_users_local(df)
 
 # -------------- Login/Logout/SignUp Flow --------------
+
 def sign_up_screen():
     st.title("Create a New Account")
     new_username = st.text_input("Choose a Username", key="signup_username")
@@ -182,14 +183,11 @@ def sign_up_screen():
 
     if st.button("Sign Up"):
         if not new_username or not new_password:
-            st.error("Username/Password cannot be empty.")
-            return  # No st.stop, just return
+            return  # no message
         elif user_exists(new_username):
-            st.error("Username already exists. Please choose a different one.")
-            return
+            return  # no message
         else:
             create_user(new_username, new_password)
-            st.success("Account created! You're now logged in.")
 
             token = str(uuid.uuid4())
             set_token_for_user(new_username, token)
@@ -197,7 +195,9 @@ def sign_up_screen():
             st.session_state["username"] = new_username
             st.session_state["session_token"] = token
             set_cookie("session_token", token)
-            return  # End function
+
+            # Force re-run so we see the main app on first click
+            st.experimental_rerun()
 
 def login_screen():
     st.title("🔒 Login to Civil Engineer Automation Tool")
@@ -214,15 +214,14 @@ def login_screen():
                 st.session_state["username"] = username
                 st.session_state["session_token"] = token
                 set_cookie("session_token", token)
-                st.success("Login successful!")
-                return  # Just return, no st.stop
-            else:
-                st.error("Invalid username or password.")
 
+                st.experimental_rerun()  # immediate re-run so one click is enough
+            else:
+                return  # no user message
     with col2:
         if st.button("Sign Up"):
             st.session_state["sign_up"]=True
-            return  # no st.stop
+            st.experimental_rerun()
 
 def logout():
     if "session_token" in st.session_state and st.session_state["session_token"]:
@@ -231,29 +230,58 @@ def logout():
     st.session_state["logged_in"] = False
     st.session_state["username"] = None
     st.session_state["session_token"] = None
-    st.info("Logged out successfully!")
 
-# ----------------- Save Logic for Automatic GitHub push in tabs (Renamed to 'Save Changes') -----------------
+# --- Banner Storage in database.csv as base64 so it persists ---
+def sync_home_banner_after_pull():
+    """
+    Called after we pull database.csv. If there's a row with
+    Tab='HomeBannerImage', decode it to 'uploads/home header image.jpg'.
+    """
+    if not os.path.exists("uploads"):
+        os.makedirs("uploads")
+
+    if "db_df" in st.session_state:
+        df = st.session_state["db_df"]
+        # find row
+        row_idx = df.index[(df["Tab"]=="HomeBannerImage")]
+        if len(row_idx)>0:
+            row_data = df.loc[row_idx[0],"Data"]
+            if isinstance(row_data, str) and len(row_data)>0:
+                # decode base64
+                try:
+                    img_bin = base64.b64decode(row_data)
+                    with open(HOME_BANNER_PATH,"wb") as f:
+                        f.write(img_bin)
+                except:
+                    pass  # ignore errors
+
 def save_home_banner_to_github():
-    # Demo: store a simple row in database.csv to mark that the banner changed
+    """
+    Base64-encode the 'uploads/home header image.jpg' and store in database.csv
+    row Tab='HomeBannerImage'. Then push to GitHub.
+    """
+    if not os.path.exists(HOME_BANNER_PATH):
+        return  # no image to store
+
+    with open(HOME_BANNER_PATH,"rb") as f:
+        img_bin = f.read()
+    b64_str = base64.b64encode(img_bin).decode()
+
     df, sha = pull_database()
-    row_idx = df.index[(df["Tab"]=="HomeBanner")].tolist()
+    row_idx = df.index[df["Tab"]=="HomeBannerImage"].tolist()
     if not row_idx:
-        new_row = pd.DataFrame({"Tab":["HomeBanner"], "SubTab":[""], "Data":[f"banner updated: {uuid.uuid4()}"]})
+        new_row = pd.DataFrame({"Tab":["HomeBannerImage"], "SubTab":[""], "Data":[b64_str]})
         df = pd.concat([df,new_row], ignore_index=True)
     else:
-        df.loc[row_idx[0],"Data"] = f"banner updated: {uuid.uuid4()}"
+        df.loc[row_idx[0],"Data"] = b64_str
+
     code = push_database(df, sha)
-    if code in (200,201):
-        st.success("Home banner changes pushed to GitHub!")
-    else:
-        st.error(f"Failed to push. code {code}")
+    # no success or error messages
 
 def save_structural_analysis_to_github():
-    df, sha = pull_database()
     if "structural_data" not in st.session_state:
-        st.warning("No structural data in session.")
         return
+    df, sha = pull_database()
     data_str = st.session_state.structural_data.to_csv(index=False)
     row_idx = df.index[(df["Tab"]=="DesignAnalysis") & (df["SubTab"]=="Structural")].tolist()
     if not row_idx:
@@ -261,12 +289,7 @@ def save_structural_analysis_to_github():
         df = pd.concat([df,new_row], ignore_index=True)
     else:
         df.loc[row_idx[0],"Data"] = data_str
-
-    code = push_database(df, sha)
-    if code in (200,201):
-        st.success("Structural Analysis changes pushed to GitHub!")
-    else:
-        st.error(f"Failed to push. code {code}")
+    push_database(df, sha)
 
 def save_project_management_to_github():
     df, sha = pull_database()
@@ -279,7 +302,7 @@ def save_project_management_to_github():
             df = pd.concat([df,new_row], ignore_index=True)
         else:
             df.loc[row_idx[0],"Data"] = sched_csv
-    # resource_data
+    # resource
     if "resource_data" in st.session_state:
         res_csv = st.session_state.resource_data.to_csv(index=False)
         row_idx = df.index[(df["Tab"]=="ProjectManagement") & (df["SubTab"]=="Resource")].tolist()
@@ -288,7 +311,7 @@ def save_project_management_to_github():
             df = pd.concat([df,new_row], ignore_index=True)
         else:
             df.loc[row_idx[0],"Data"] = res_csv
-    # progress_data
+    # progress
     if "progress_data" in st.session_state:
         prog_csv = st.session_state.progress_data.to_csv(index=False)
         row_idx = df.index[(df["Tab"]=="ProjectManagement") & (df["SubTab"]=="Progress")].tolist()
@@ -298,11 +321,7 @@ def save_project_management_to_github():
         else:
             df.loc[row_idx[0],"Data"] = prog_csv
 
-    code = push_database(df, sha)
-    if code in (200,201):
-        st.success("Project Management data pushed to GitHub!")
-    else:
-        st.error(f"Failed to push. code {code}")
+    push_database(df, sha)
 
 def save_tools_utilities_to_github():
     df, sha = pull_database()
@@ -315,11 +334,7 @@ def save_tools_utilities_to_github():
         else:
             df.loc[row_idx[0],"Data"] = cost_csv
 
-    code = push_database(df, sha)
-    if code in (200,201):
-        st.success("Tools & Utilities data pushed to GitHub!")
-    else:
-        st.error(f"Failed to push. code {code}")
+    push_database(df, sha)
 
 def save_collaboration_docs_to_github():
     df, sha = pull_database()
@@ -332,19 +347,18 @@ def save_collaboration_docs_to_github():
         else:
             df.loc[row_idx[0],"Data"] = docs_csv
 
-    code = push_database(df, sha)
-    if code in (200,201):
-        st.success("Collaboration & Docs data pushed to GitHub!")
-    else:
-        st.error(f"Failed to push. code {code}")
-# ----------------------------------------------------------------
+    push_database(df, sha)
 
 def main_app():
     # Pull database.csv
     st.session_state["db_df"], st.session_state["db_sha"] = pull_database()
 
+    # After pulling, decode home banner if any
+    sync_home_banner_after_pull()
+
     if st.button("Logout"):
         logout()
+        st.experimental_rerun()
         return
 
     selected_tab = render_sidebar()
@@ -357,7 +371,6 @@ def main_app():
 
     elif selected_tab == "Design and Analysis":
         design_analysis.run()
-        # "Save Changes" for structural analysis
         if st.button("Save Changes", key="save_struct_analysis"):
             save_structural_analysis_to_github()
 
@@ -368,7 +381,7 @@ def main_app():
 
     elif selected_tab == "Compliance and Reporting":
         compliance_reporting.run()
-        st.info("No auto-push for compliance tab as requested.")
+        # no auto push
 
     elif selected_tab == "Tools and Utilities":
         tools_utilities.run()
@@ -379,6 +392,28 @@ def main_app():
         collaboration_documentation.run()
         if st.button("Save Changes", key="save_collab_docs"):
             save_collaboration_docs_to_github()
+
+# We decode the home banner from DB if it exists
+def sync_home_banner_after_pull():
+    """
+    Called after pulling database.csv.
+    If there's a row with Tab='HomeBannerImage', decode it to 'uploads/home header image.jpg'.
+    """
+    if not os.path.exists("uploads"):
+        os.makedirs("uploads")
+
+    if "db_df" in st.session_state and st.session_state["db_df"] is not None:
+        df = st.session_state["db_df"]
+        row_idx = df.index[df["Tab"]=="HomeBannerImage"].tolist()
+        if row_idx:
+            b64_str = df.loc[row_idx[0],"Data"]
+            if b64_str:
+                try:
+                    img_bin = base64.b64decode(b64_str)
+                    with open(HOME_BANNER_PATH,"wb") as f:
+                        f.write(img_bin)
+                except:
+                    pass
 
 def check_cookie_session():
     tok = get_cookie("session_token")
@@ -395,7 +430,7 @@ def check_cookie_session():
             st.session_state["session_token"] = None
 
 def run():
-    pull_users_init()  # load users from GitHub
+    pull_users_init()
     if "logged_in" not in st.session_state:
         st.session_state["logged_in"] = False
     if "sign_up" not in st.session_state:
