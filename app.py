@@ -38,11 +38,9 @@ if not cookies.ready():
 
 def get_cookie(key):
     return cookies.get(key)
-
 def set_cookie(key, value):
     cookies[key] = value
     cookies.save()
-
 def clear_cookie(key):
     if key in cookies:
         del cookies[key]
@@ -86,11 +84,9 @@ def pull_users():
         with open(USERS_FILE,"w",encoding="utf-8") as f:
             f.write(decoded)
     else:
-        # Minimal CSV
         with open(USERS_FILE,"w",encoding="utf-8") as f:
             f.write("username,password,token\n")
         sha = None
-
     try:
         df = pd.read_csv(USERS_FILE)
     except pd.errors.EmptyDataError:
@@ -104,7 +100,6 @@ def push_users(df, sha=None):
     data = {"message": "Update users.csv" if sha else "Create users.csv", "content": encoded}
     if sha:
         data["sha"] = sha
-
     r = requests.put(USERS_API_URL, headers=HEADERS, json=data)
     return r.status_code
 
@@ -133,13 +128,11 @@ def save_users_local(df):
     USERS_DF = df.copy()
     code = push_users(USERS_DF, USERS_SHA)
     if code in (200,201):
-        # Silently re-pull to sync
         new_df, new_sha = pull_users()
         new_df = ensure_columns(new_df)
         USERS_DF = new_df.copy()
         USERS_SHA = new_sha
     else:
-        # no user message
         pass
 
 # -------------- Basic user management --------------
@@ -176,7 +169,6 @@ def clear_token(token):
     save_users_local(df)
 
 # -------------- Login/Logout/SignUp Flow --------------
-
 def sign_up_screen():
     st.title("Create a New Account")
     new_username = st.text_input("Choose a Username", key="signup_username")
@@ -184,9 +176,9 @@ def sign_up_screen():
 
     if st.button("Sign Up"):
         if not new_username or not new_password:
-            st.stop()
+            st.stop()  # no message
         elif user_exists(new_username):
-            st.stop()
+            st.stop()  # no message
         else:
             create_user(new_username, new_password)
             # set token
@@ -234,7 +226,8 @@ def sync_home_banner_after_pull():
 
     if "db_df" in st.session_state and st.session_state["db_df"] is not None:
         df = st.session_state["db_df"]
-        row_idx = df.index[df["Tab"]=="HomeBannerImage"].tolist()
+        # rename from "HomeBannerImage" to "HomeBanner" for clarity
+        row_idx = df.index[df["Tab"]=="HomeBanner"].tolist()
         if row_idx:
             b64_str = df.loc[row_idx[0],"Data"]
             if b64_str:
@@ -246,6 +239,9 @@ def sync_home_banner_after_pull():
                     pass
 
 def save_home_banner_to_github():
+    """
+    If the user updated the local 'uploads/home header image.jpg', we store it in database.csv row Tab='HomeBanner'.
+    """
     if not os.path.exists(HOME_BANNER_PATH):
         return
     with open(HOME_BANNER_PATH,"rb") as f:
@@ -253,12 +249,13 @@ def save_home_banner_to_github():
     b64_str = base64.b64encode(img_bin).decode()
 
     df, sha = pull_database()
-    row_idx = df.index[df["Tab"]=="HomeBannerImage"].tolist()
+    row_idx = df.index[df["Tab"]=="HomeBanner"].tolist()
     if not row_idx:
-        new_row = pd.DataFrame({"Tab":["HomeBannerImage"], "SubTab":[""], "Data":[b64_str]})
+        new_row = pd.DataFrame({"Tab":["HomeBanner"], "SubTab":[""], "Data":[b64_str]})
         df = pd.concat([df,new_row], ignore_index=True)
     else:
         df.loc[row_idx[0],"Data"] = b64_str
+
     push_database(df, sha)
 
 def save_structural_analysis_to_github():
@@ -276,7 +273,6 @@ def save_structural_analysis_to_github():
 
 def save_project_management_to_github():
     df, sha = pull_database()
-    # scheduling
     if "scheduling_data" in st.session_state:
         sched_csv = st.session_state.scheduling_data.to_csv(index=False)
         row_idx = df.index[(df["Tab"]=="ProjectManagement") & (df["SubTab"]=="Scheduling")].tolist()
@@ -285,7 +281,6 @@ def save_project_management_to_github():
             df = pd.concat([df,new_row], ignore_index=True)
         else:
             df.loc[row_idx[0],"Data"] = sched_csv
-    # resource
     if "resource_data" in st.session_state:
         res_csv = st.session_state.resource_data.to_csv(index=False)
         row_idx = df.index[(df["Tab"]=="ProjectManagement") & (df["SubTab"]=="Resource")].tolist()
@@ -294,7 +289,6 @@ def save_project_management_to_github():
             df = pd.concat([df,new_row], ignore_index=True)
         else:
             df.loc[row_idx[0],"Data"] = res_csv
-    # progress
     if "progress_data" in st.session_state:
         prog_csv = st.session_state.progress_data.to_csv(index=False)
         row_idx = df.index[(df["Tab"]=="ProjectManagement") & (df["SubTab"]=="Progress")].tolist()
@@ -303,7 +297,6 @@ def save_project_management_to_github():
             df = pd.concat([df,new_row], ignore_index=True)
         else:
             df.loc[row_idx[0],"Data"] = prog_csv
-
     push_database(df, sha)
 
 def save_tools_utilities_to_github():
@@ -332,7 +325,6 @@ def save_collaboration_docs_to_github():
 
 def main_app():
     st.session_state["db_df"], st.session_state["db_sha"] = pull_database()
-    # decode home banner if stored
     sync_home_banner_after_pull()
 
     if st.button("Logout"):
@@ -360,8 +352,8 @@ def main_app():
             st.stop()
 
     elif selected_tab == "Compliance and Reporting":
-        # do nothing
         compliance_reporting.run()
+        # no push
 
     elif selected_tab == "Tools and Utilities":
         tools_utilities.run()
