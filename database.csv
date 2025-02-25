@@ -5,10 +5,7 @@ Project Management,Scheduling,"{""Task"": ""Site Inspection"", ""Start Date"": "
 Compliance and Reporting,Standards Verification,"{""Requirement"": ""Building Code ACI 318"", ""Status"": ""Pass""}"
 Tools and Utilities,Quantity Takeoff & Cost Estimation,"{""Material"": ""Concrete"", ""Unit Price"": 120, ""Quantity"": 50, ""Unit"": ""m³"", ""Currency"": ""USD"", ""Total Cost"": 6000}"
 ToolsUtilities,CostEstimation,"Material,Unit Price,Quantity,Unit,Total Cost,Currency,Notes
-Concrete,57000.0,34,m³,1938000.0,USD ($),
-Concrete,57000.0,43,m³,2451000.0,USD ($),
-Concrete,57000.0,35,m³,1995000.0,USD ($),
-Concrete,57000.0,23,m³,1311000.0,USD ($), wasta halo
+Concrete,6.0,9,m³,54.0,USD ($),
 "
 HomeBanner,,banner updated: 0f8ef0c4-a910-48ca-be86-780fc80e6e17
 DesignAnalysis,Structural,"Load Type,Load Value (kN)
