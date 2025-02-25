@@ -7,6 +7,8 @@ Tools and Utilities,Quantity Takeoff & Cost Estimation,"{""Material"": ""Concret
 ToolsUtilities,CostEstimation,"Material,Unit Price,Quantity,Unit,Total Cost,Currency,Notes
 Concrete,57000.0,34,m³,1938000.0,USD ($),
 Concrete,57000.0,43,m³,2451000.0,USD ($),
+Concrete,57000.0,35,m³,1995000.0,USD ($),
+Concrete,57000.0,23,m³,1311000.0,USD ($), wasta halo
 "
 HomeBanner,,banner updated: 0f8ef0c4-a910-48ca-be86-780fc80e6e17
 DesignAnalysis,Structural,"Load Type,Load Value (kN)
