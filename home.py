@@ -36,7 +36,7 @@ def run():
     HOME_BANNER_PATH = "uploads/home header image.jpg"
 
     with col2:
-        st.subheader("Profile Image")
+        st.subheader("Current banner Image")
         # Check if the file exists or if a new image was just uploaded
         if os.path.exists(HOME_BANNER_PATH):
             st.image(HOME_BANNER_PATH, use_container_width=True)
