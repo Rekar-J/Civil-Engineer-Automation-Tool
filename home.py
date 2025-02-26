@@ -5,8 +5,12 @@ import requests
 def run():
     st.title("🏠 Welcome to the Civil Engineer Automation Tool (Home)")
 
+    # If a user is logged in, show their name
+    if "username" in st.session_state and st.session_state["username"]:
+        st.write(f"Welcome, {st.session_state['username']}!")
+
     # Two-column advanced UI layout
-    col1, col2 = st.columns([2,1])
+    col1, col2 = st.columns([2, 1])
 
     with col1:
         st.markdown("""
@@ -58,7 +62,6 @@ def run():
             file_path = HOME_BANNER_PATH
             with open(file_path, "wb") as f:
                 f.write(uploaded_file.getbuffer())
-
             st.success("Home banner image updated from local file!")
             # Immediately show the updated banner without re-run
             st.image(file_path, use_container_width=True)
