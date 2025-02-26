@@ -7,7 +7,7 @@ def run():
 
     # Ensure username is displayed
     if "username" in st.session_state and st.session_state["username"]:
-        st.write(f"### 💡 Welcome, **{st.session_state['username']}!**")
+        st.write(f"### 🔵 Welcome, **{st.session_state['username']}!**")
     else:
         st.warning("⚠️ Username not found in session state. Try logging in again.")
 
