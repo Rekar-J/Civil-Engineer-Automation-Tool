@@ -5,9 +5,11 @@ import requests
 def run():
     st.title("🏠 Welcome to the Civil Engineer Automation Tool (Home)")
 
-    # If a user is logged in, show their name
+    # Ensure username is displayed
     if "username" in st.session_state and st.session_state["username"]:
-        st.write(f"Welcome, {st.session_state['username']}!")
+        st.write(f"### 👤 Welcome, **{st.session_state['username']}!**")
+    else:
+        st.warning("⚠️ Username not found in session state. Try logging in again.")
 
     # Two-column advanced UI layout
     col1, col2 = st.columns([2, 1])
@@ -62,8 +64,6 @@ def run():
             file_path = HOME_BANNER_PATH
             with open(file_path, "wb") as f:
                 f.write(uploaded_file.getbuffer())
-            st.success("Home banner image updated from local file!")
-            # Immediately show the updated banner without re-run
             st.image(file_path, use_container_width=True)
 
         st.write("---")
@@ -80,7 +80,6 @@ def run():
                     if response.status_code == 200 and content_type.startswith("image"):
                         with open(HOME_BANNER_PATH, "wb") as f:
                             f.write(response.content)
-                        st.success("Home banner image updated from web URL!")
                         st.image(HOME_BANNER_PATH, use_container_width=True)
                     else:
                         st.error("Could not fetch a valid image from the provided URL.")
@@ -93,12 +92,10 @@ def run():
         if st.button("Delete/Reset Banner", key="delete_banner"):
             if os.path.exists(HOME_BANNER_PATH):
                 os.remove(HOME_BANNER_PATH)
-                st.warning("The home banner image was deleted. A placeholder will be shown instead.")
             else:
                 st.info("No home banner image found to delete.")
 
         st.write("---")
-        st.info("You remain logged in. No page refresh is required.")
 
     st.write("### Quick Start Guide")
     st.info("Use the left sidebar to navigate different sections of the tool.")
