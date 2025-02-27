@@ -27,3 +27,4 @@ def run():
 
     with tabs[3]:  
         tests()
+
