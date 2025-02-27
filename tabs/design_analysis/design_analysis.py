@@ -5,14 +5,14 @@ from tabs.hydraulic_analysis import run as hydraulic_analysis
 from tabs.tests import run as tests
 
 def run():
-    """Runs the Design and Analysis tab with multiple sub-tabs."""
     st.title("🛠️ Design and Analysis")
+
     st.write("This section provides tools for analyzing structural loads, geotechnical properties, hydraulic models, and laboratory test results.")
 
     tabs = st.tabs([
-        "Structural Analysis",
-        "Geotechnical Analysis",
-        "Hydraulic and Hydrological Modeling",
+        "Structural Analysis", 
+        "Geotechnical Analysis", 
+        "Hydraulic and Hydrological Modeling", 
         "Tests"
     ])
 
