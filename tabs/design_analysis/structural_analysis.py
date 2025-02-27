@@ -22,43 +22,10 @@ def run():
     st.dataframe(st.session_state.structural_data)
 
     # Perform calculations
-    if not st.session_state.structural_data.empty:
-        total_load = st.session_state.structural_data["Load Value (kN)"].sum()
-        max_load = st.session_state.structural_data["Load Value (kN)"].max()
-        avg_load = st.session_state.structural_data["Load Value (kN)"].mean()
-        min_load = st.session_state.structural_data["Load Value (kN)"].min()
+    total_load = st.session_state.structural_data["Load Value (kN)"].sum()
+    max_load = st.session_state.structural_data["Load Value (kN)"].max()
 
-        st.write("### Analysis Results")
-        st.write(f"- **Total Load:** {total_load:.2f} kN")
-        st.write(f"- **Maximum Load:** {max_load:.2f} kN")
-        st.write(f"- **Minimum Load:** {min_load:.2f} kN")
-        st.write(f"- **Average Load:** {avg_load:.2f} kN")
-
-        # Load Classification System
-        if max_load > 500:
-            st.warning("⚠️ **High Load Warning**: Ensure structure is designed to handle heavy loads.")
-        elif max_load < 100:
-            st.success("✅ **Light Load**: Structure is under minimal stress.")
-
-        # Load Distribution Visualization
-        st.write("### Load Distribution")
-        st.bar_chart(st.session_state.structural_data.set_index("Load Type"))
-
-        # Structural Safety Check based on Load Factor
-        st.write("### Safety Factor Analysis")
-        load_factor = st.number_input("Enter Load Factor (Typical: 1.5 for Ultimate Load)", min_value=1.0, max_value=3.0, step=0.1, key="load_factor")
-        
-        ultimate_load = total_load * load_factor
-        st.write(f"🔹 **Ultimate Design Load (kN):** {ultimate_load:.2f}")
-
-        if ultimate_load > 1000:
-            st.error("❌ **Overloaded Structure!** Consider re-evaluating the design.")
-        elif 500 <= ultimate_load <= 1000:
-            st.warning("⚠️ **Moderate Load**: Ensure structural integrity checks are performed.")
-        else:
-            st.success("✅ **Safe Load Design**: The structure is within safe limits.")
-
-        st.success("Ensure compliance with **ACI design load requirements**.")
-
-    else:
-        st.info("No load data available. Please enter values to begin analysis.")
+    st.write("### Analysis Results")
+    st.write(f"- **Total Load:** {total_load} kN")
+    st.write(f"- **Maximum Load:** {max_load} kN")
+    st.success("Ensure compliance with **ACI design load requirements**.")
