@@ -5,6 +5,8 @@ from tabs.report_generation import run as report_generation
 def run():
     st.title("✅ Compliance and Reporting")
 
+    st.write("This section ensures compliance with regulations and generates engineering reports.")
+
     tabs = st.tabs(["Standards Verification", "Report Generation"])
 
     with tabs[0]:  
@@ -12,3 +14,4 @@ def run():
 
     with tabs[1]:  
         report_generation()
+
