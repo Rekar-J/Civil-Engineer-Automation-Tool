@@ -1,8 +1,8 @@
 import streamlit as st
-from tabs.structural_analysis import run as structural_analysis
-from tabs.geotechnical_analysis import run as geotechnical_analysis
-from tabs.hydraulic_analysis import run as hydraulic_analysis
-from tabs.tests import run as tests
+from design_analysis.structural_analysis import run as structural_analysis
+from design_analysis.geotechnical_analysis import run as geotechnical_analysis
+from design_analysis.hydraulic_analysis import run as hydraulic_analysis
+from tests import run as tests  # Since tests.py is outside `design_analysis/`
 
 def run():
     st.title("🛠️ Design and Analysis")
