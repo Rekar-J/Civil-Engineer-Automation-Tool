@@ -11,7 +11,7 @@ from streamlit_cookies_manager import EncryptedCookieManager
 from sidebar import render_sidebar
 from home import run as run_home
 
-# Import tabs using full paths based on your repo structure:
+# Import tabs using absolute paths based on your new repo structure:
 import tabs.design_analysis.design_analysis as design_analysis
 import tabs.project_management.project_management as project_management
 import tabs.compliance_reporting.compliance_reporting as compliance_reporting
@@ -37,18 +37,20 @@ if not cookies.ready():
 
 def get_cookie(key):
     return cookies.get(key)
+
 def set_cookie(key, value):
     cookies[key] = value
     cookies.save()
+
 def clear_cookie(key):
     if key in cookies:
         del cookies[key]
     cookies.save()
 
 def ensure_columns(df):
-    for col in ["username", "password", "token"]:
-        if col not in df.columns:
-            df[col] = ""
+    for c in ["username", "password", "token"]:
+        if c not in df.columns:
+            df[c] = ""
     return df
 
 def pull_users_init():
@@ -210,7 +212,6 @@ def run():
         st.title("🔒 Login to Civil Engineer Automation Tool")
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
-
         if st.button("Login"):
             if check_credentials(username, password):
                 st.session_state["logged_in"] = True
