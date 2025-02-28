@@ -1,20 +1,20 @@
 import streamlit as st
-import pandas as pd
+from project_management.scheduling import run as scheduling
+from project_management.resource_allocation import run as resource_allocation
+from project_management.progress_monitoring import run as progress_monitoring
 
 def run():
-    st.header("Progress Monitoring")
-    st.subheader("📌 About Progress Monitoring")
-    st.info("Track **project completion, performance metrics, and task status** to ensure projects stay on schedule.")
+    st.title("📅 Project Management")
 
-    task_name = st.text_input("Enter Task Name", key="progress_task_name")
-    progress_percentage = st.slider("Completion Percentage", 0, 100, step=5, key="progress_slider")
+    st.write("This section provides tools for scheduling, resource allocation, and project tracking.")
 
-    if "progress_data" not in st.session_state:
-        st.session_state.progress_data = pd.DataFrame(columns=["Task", "Progress (%)"])
+    tabs = st.tabs(["Scheduling", "Resource Allocation", "Progress Monitoring"])
 
-    if st.button("Add Progress Data", key="add_progress_task"):
-        new_row = pd.DataFrame({"Task": [task_name], "Progress (%)": [progress_percentage]})
-        st.session_state.progress_data = pd.concat([st.session_state.progress_data, new_row], ignore_index=True)
+    with tabs[0]:  
+        scheduling()
 
-    st.write("### Task Progress")
-    st.dataframe(st.session_state.progress_data)
+    with tabs[1]:  
+        resource_allocation()
+
+    with tabs[2]:  
+        progress_monitoring()
