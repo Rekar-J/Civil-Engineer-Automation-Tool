@@ -6,7 +6,11 @@ import uuid
 import base64
 import importlib
 
-# Ensure the repository root is on the PYTHONPATH
+# Debug: Print working directory and sys.path (view logs in Streamlit Cloud)
+st.write("Current working directory:", os.getcwd())
+st.write("sys.path:", sys.path)
+
+# Ensure the repository root (where app.py lives) is on the PYTHONPATH
 repo_root = os.path.abspath(os.path.dirname(__file__))
 if repo_root not in sys.path:
     sys.path.append(repo_root)
@@ -18,11 +22,12 @@ from sidebar import render_sidebar
 from home import run as run_home
 
 # Import modules using the new structure:
-import design_analysis.design_analysis as design_analysis
-import project_management.project_management as project_management
-import compliance_reporting.compliance_reporting as compliance_reporting
-import tools_utilities.tools_utilities as tools_utilities
-import collaboration_documentation.collaboration_documentation as collaboration_documentation
+# Note: Using the alternate import style here.
+from design_analysis import design_analysis
+from project_management import project_management
+from compliance_reporting import compliance_reporting
+from tools_utilities import tools_utilities
+from collaboration_documentation import collaboration_documentation
 
 from pushpull import (
     pull_database, push_database,
