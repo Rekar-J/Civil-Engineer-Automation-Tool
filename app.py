@@ -6,15 +6,12 @@ import uuid
 import base64
 import importlib
 
-# Debug: Print working directory and sys.path (view logs in Streamlit Cloud)
-st.write("Current working directory:", os.getcwd())
-st.write("sys.path:", sys.path)
-
-# Ensure the repository root (where app.py lives) is on the PYTHONPATH
+# Ensure the repository root (where app.py lives) is on the PYTHONPATH.
 repo_root = os.path.abspath(os.path.dirname(__file__))
 if repo_root not in sys.path:
     sys.path.append(repo_root)
 
+# st.set_page_config must be the first Streamlit command.
 st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide")
 
 from streamlit_cookies_manager import EncryptedCookieManager
@@ -22,7 +19,6 @@ from sidebar import render_sidebar
 from home import run as run_home
 
 # Import modules using the new structure:
-# Note: Using the alternate import style here.
 from design_analysis import design_analysis
 from project_management import project_management
 from compliance_reporting import compliance_reporting
