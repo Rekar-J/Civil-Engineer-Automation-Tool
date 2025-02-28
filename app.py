@@ -11,12 +11,12 @@ from streamlit_cookies_manager import EncryptedCookieManager
 from sidebar import render_sidebar
 from home import run as run_home
 
-# Import tabs using absolute paths based on your new repo structure:
-import tabs.design_analysis.design_analysis as design_analysis
-import tabs.project_management.project_management as project_management
-import tabs.compliance_reporting.compliance_reporting as compliance_reporting
-import tabs.tools_utilities.tools_utilities as tools_utilities
-import tabs.collaboration_documentation.collaboration_documentation as collaboration_documentation
+# Import modules using the new structure:
+import design_analysis.design_analysis as design_analysis
+import project_management.project_management as project_management
+import compliance_reporting.compliance_reporting as compliance_reporting
+import tools_utilities.tools_utilities as tools_utilities
+import collaboration_documentation.collaboration_documentation as collaboration_documentation
 
 from pushpull import (
     pull_database, push_database,
