@@ -11,7 +11,7 @@ from streamlit_cookies_manager import EncryptedCookieManager
 from sidebar import render_sidebar
 from home import run as run_home
 
-# Import tabs using full paths based on the new structure:
+# Import tabs using full paths based on your repo structure:
 import tabs.design_analysis.design_analysis as design_analysis
 import tabs.project_management.project_management as project_management
 import tabs.compliance_reporting.compliance_reporting as compliance_reporting
@@ -46,9 +46,9 @@ def clear_cookie(key):
     cookies.save()
 
 def ensure_columns(df):
-    for c in ["username", "password", "token"]:
-        if c not in df.columns:
-            df[c] = ""
+    for col in ["username", "password", "token"]:
+        if col not in df.columns:
+            df[col] = ""
     return df
 
 def pull_users_init():
