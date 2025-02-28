@@ -1,8 +1,8 @@
-import streamlit as st 
+import streamlit as st
 from tabs.design_analysis.structural_analysis import run as structural_analysis
 from tabs.design_analysis.geotechnical_analysis import run as geotechnical_analysis
 from tabs.design_analysis.hydraulic_analysis import run as hydraulic_analysis
-from tests import run as tests  # Changed to absolute import since tests.py is at the repo root
+from tabs.design_analysis.test import run as tests  # Use absolute import from design_analysis/test.py
 
 def run():
     st.title("🛠️ Design and Analysis")
