@@ -5,21 +5,19 @@ import uuid
 import base64
 import importlib
 
-# Must be the first Streamlit command
 st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide")
 
 from streamlit_cookies_manager import EncryptedCookieManager
 from sidebar import render_sidebar
 from home import run as run_home
 
-# ---- Correcting imports based on new repo structure ----
-import design_analysis.design_analysis as design_analysis
-import project_management.project_management as project_management
-import compliance_reporting.compliance_reporting as compliance_reporting
-import tools_utilities.tools_utilities as tools_utilities
-import collaboration_documentation.collaboration_documentation as collaboration_documentation
+# Import tabs using full paths based on the new structure:
+import tabs.design_analysis.design_analysis as design_analysis
+import tabs.project_management.project_management as project_management
+import tabs.compliance_reporting.compliance_reporting as compliance_reporting
+import tabs.tools_utilities.tools_utilities as tools_utilities
+import tabs.collaboration_documentation.collaboration_documentation as collaboration_documentation
 
-# ---- Import push/pull functions from pushpull.py ----
 from pushpull import (
     pull_database, push_database,
     pull_users, push_users,
@@ -28,11 +26,9 @@ from pushpull import (
 
 HOME_BANNER_PATH = "uploads/home header image.jpg"
 
-# -------------- In-memory usage for users.csv --------------
-USERS_DF = pd.DataFrame(columns=["username","password","token"])
+# In-memory storage for users.csv
+USERS_DF = pd.DataFrame(columns=["username", "password", "token"])
 USERS_SHA = None
-
-DATABASE_DF = pd.DataFrame()
 
 COOKIES_PASSWORD = "MY_SUPER_SECRET_PASSWORD_1234"
 cookies = EncryptedCookieManager(prefix="civil_eng_app", password=COOKIES_PASSWORD)
@@ -50,13 +46,12 @@ def clear_cookie(key):
     cookies.save()
 
 def ensure_columns(df):
-    for c in ["username","password","token"]:
+    for c in ["username", "password", "token"]:
         if c not in df.columns:
             df[c] = ""
     return df
 
 def pull_users_init():
-    """Pull users.csv from GitHub at app startup and store in memory."""
     global USERS_DF, USERS_SHA
     df, sha = pull_users()
     df = ensure_columns(df)
@@ -67,11 +62,10 @@ def load_users_local():
     return USERS_DF.copy()
 
 def save_users_local(df):
-    """Save user data and push to GitHub."""
     global USERS_DF, USERS_SHA
     USERS_DF = df.copy()
     code = push_users(USERS_DF, USERS_SHA)
-    if code in (200,201):
+    if code in (200, 201):
         new_df, new_sha = pull_users()
         new_df = ensure_columns(new_df)
         USERS_DF = new_df.copy()
@@ -79,36 +73,76 @@ def save_users_local(df):
 
 def user_exists(username):
     df = load_users_local()
-    return not df[df["username"]==username].empty
+    return not df[df["username"] == username].empty
 
 def check_credentials(username, password):
     df = load_users_local()
-    row = df[(df["username"]==username) & (df["password"]==password)]
+    row = df[(df["username"] == username) & (df["password"] == password)]
     return not row.empty
 
 def create_user(username, password):
     df = load_users_local()
-    new_row = pd.DataFrame({"username":[username],"password":[password],"token":[""]})
+    new_row = pd.DataFrame({"username": [username], "password": [password], "token": [""]})
     df = pd.concat([df, new_row], ignore_index=True)
     save_users_local(df)
 
 def set_token_for_user(username, token):
     df = load_users_local()
-    df.loc[df["username"]==username,"token"]=token
+    df.loc[df["username"] == username, "token"] = token
     save_users_local(df)
 
 def find_user_by_token(token):
     df = load_users_local()
-    row = df[df["token"]==token]
+    row = df[df["token"] == token]
     return None if row.empty else row.iloc[0]
 
 def clear_token(token):
     df = load_users_local()
-    df.loc[df["token"]==token,"token"]=""
+    df.loc[df["token"] == token, "token"] = ""
     save_users_local(df)
 
+def sign_up_screen():
+    st.title("Create a New Account")
+    new_username = st.text_input("Choose a Username", key="signup_username")
+    new_password = st.text_input("Choose a Password", type="password", key="signup_password")
+
+    if st.button("Sign Up"):
+        if not new_username or not new_password:
+            st.stop()
+        elif user_exists(new_username):
+            st.stop()
+        else:
+            create_user(new_username, new_password)
+            token = str(uuid.uuid4())
+            set_token_for_user(new_username, token)
+            st.session_state["logged_in"] = True
+            st.session_state["username"] = new_username
+            st.session_state["session_token"] = token
+            set_cookie("session_token", token)
+            st.stop()
+
+def login_screen():
+    st.title("🔒 Login to Civil Engineer Automation Tool")
+    username = st.text_input("Username", key="login_username")
+    password = st.text_input("Password", type="password", key="login_password")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Login"):
+            if check_credentials(username, password):
+                token = str(uuid.uuid4())
+                set_token_for_user(username, token)
+                st.session_state["logged_in"] = True
+                st.session_state["username"] = username
+                st.session_state["session_token"] = token
+                set_cookie("session_token", token)
+            st.stop()
+    with col2:
+        if st.button("Sign Up"):
+            st.session_state["sign_up"] = True
+            st.stop()
+
 def logout():
-    """Log the user out and clear session cookies."""
     if "session_token" in st.session_state and st.session_state["session_token"]:
         clear_token(st.session_state["session_token"])
     clear_cookie("session_token")
@@ -117,7 +151,6 @@ def logout():
     st.session_state["session_token"] = None
 
 def main_app():
-    """Main application logic after login."""
     from pushpull import pull_database
     db_df, db_sha = pull_database()
     st.session_state["db_df"] = db_df
@@ -147,6 +180,20 @@ def main_app():
         importlib.reload(collaboration_documentation)
         collaboration_documentation.run()
 
+def check_cookie_session():
+    token = get_cookie("session_token")
+    if token:
+        user = find_user_by_token(token)
+        if user is not None:
+            st.session_state["logged_in"] = True
+            st.session_state["username"] = user["username"]
+            st.session_state["session_token"] = token
+        else:
+            clear_cookie("session_token")
+            st.session_state["logged_in"] = False
+            st.session_state["username"] = None
+            st.session_state["session_token"] = None
+
 def run():
     pull_users_init()
 
@@ -156,6 +203,8 @@ def run():
         st.session_state["sign_up"] = False
     if "session_token" not in st.session_state:
         st.session_state["session_token"] = None
+
+    check_cookie_session()
 
     if not st.session_state["logged_in"]:
         st.title("🔒 Login to Civil Engineer Automation Tool")
