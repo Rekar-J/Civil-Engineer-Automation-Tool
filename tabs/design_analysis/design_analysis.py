@@ -1,8 +1,8 @@
 import streamlit as st
-from .structural_analysis import run as structural_analysis
-from .geotechnical_analysis import run as geotechnical_analysis
-from .hydraulic_analysis import run as hydraulic_analysis
-from tests import run as tests  # Assuming tests.py is in the root directory
+from tabs.design_analysis.structural_analysis import run as structural_analysis
+from tabs.design_analysis.geotechnical_analysis import run as geotechnical_analysis
+from tabs.design_analysis.hydraulic_analysis import run as hydraulic_analysis
+from ...tests import run as tests  # Use relative import to go from tabs/design_analysis to repo root
 
 def run():
     st.title("🛠️ Design and Analysis")
