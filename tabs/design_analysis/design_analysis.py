@@ -1,8 +1,8 @@
 import streamlit as st
-from tabs.design_analysis.structural_analysis import run as structural_analysis
-from tabs.design_analysis.geotechnical_analysis import run as geotechnical_analysis
-from tabs.design_analysis.hydraulic_analysis import run as hydraulic_analysis
-from tabs.design_analysis.test import run as test  # Use absolute import from design_analysis/test.py
+from .structural_analysis import run as structural_analysis
+from .geotechnical_analysis import run as geotechnical_analysis
+from .hydraulic_analysis import run as hydraulic_analysis
+from .test import run as test
 
 def run():
     st.title("🛠️ Design and Analysis")
@@ -25,4 +25,4 @@ def run():
         hydraulic_analysis()
 
     with tabs[3]:
-        tests()
+        test()
