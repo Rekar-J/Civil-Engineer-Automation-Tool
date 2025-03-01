@@ -19,11 +19,11 @@ from sidebar import render_sidebar
 from home import run as run_home
 
 # Use absolute imports for your packages.
-import design_analysis.design_analysis as design_analysis
-import project_management.project_management as project_management
-import compliance_reporting.compliance_reporting as compliance_reporting
-import tools_utilities.tools_utilities as tools_utilities
-import collaboration_documentation.collaboration_documentation as collaboration_documentation
+from design_analysis import run as run_design_analysis
+from project_management import run as run_project_management
+from compliance_reporting import run as run_compliance_reporting
+from tools_utilities import run as run_tools_utilities
+from collaboration_documentation import run as run_collaboration_documentation
 
 from pushpull import (
     pull_database, push_database,
@@ -174,20 +174,20 @@ def main_app():
     if selected_tab == "Home":
         run_home()
     elif selected_tab == "Design and Analysis":
-        importlib.reload(design_analysis)
-        design_analysis.run()
+        importlib.reload(run_design_analysis)
+        run_design_analysis()
     elif selected_tab == "Project Management":
-        importlib.reload(project_management)
-        project_management.run()
+        importlib.reload(run_project_management)
+        run_project_management()
     elif selected_tab == "Compliance and Reporting":
-        importlib.reload(compliance_reporting)
-        compliance_reporting.run()
+        importlib.reload(run_compliance_reporting)
+        run_compliance_reporting()
     elif selected_tab == "Tools and Utilities":
-        importlib.reload(tools_utilities)
-        tools_utilities.run()
+        importlib.reload(run_tools_utilities)
+        run_tools_utilities()
     elif selected_tab == "Collaboration and Documentation":
-        importlib.reload(collaboration_documentation)
-        collaboration_documentation.run()
+        importlib.reload(run_collaboration_documentation)
+        run_collaboration_documentation()
 
 def check_cookie_session():
     token = get_cookie("session_token")
