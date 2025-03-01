@@ -1,16 +1,12 @@
 import streamlit as st
-from tabs.document_management import run as document_management
-from tabs.communication_tools import run as communication_tools
 
 def run():
-    st.title("📂 Collaboration and Documentation")
-
-    st.write("This section provides tools for managing project documents and communication.")
-
-    tabs = st.tabs(["Document Management", "Communication Tools"])
-
-    with tabs[0]:  
-        document_management()
-
-    with tabs[1]:  
-        communication_tools()
+    st.header("Document Management")
+    st.subheader("📌 About Document Management")
+    st.info("Manage your project documents, including designs, reports, and contracts.")
+    
+    # File uploader for document management
+    uploaded_file = st.file_uploader("Upload Document", type=["pdf", "docx", "txt", "xls", "xlsx"], key="doc_upload")
+    
+    if uploaded_file:
+        st.success(f"📁 {uploaded_file.name} uploaded successfully!")
