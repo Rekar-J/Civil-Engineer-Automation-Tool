@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 
 def run():
+    # Title and subheader for the section
     st.header("Standards Verification")
     st.subheader("📌 About Compliance Verification")
     st.info("Check if your project **meets safety codes and legal requirements**.")
