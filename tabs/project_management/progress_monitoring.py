@@ -1,7 +1,8 @@
 import streamlit as st
-from project_management.scheduling import run as scheduling
-from project_management.resource_allocation import run as resource_allocation
-from project_management.progress_monitoring import run as progress_monitoring
+# Correct the import paths to use the proper relative paths from the 'tabs' folder
+from tabs.project_management.scheduling import run as scheduling
+from tabs.project_management.resource_allocation import run as resource_allocation
+from tabs.project_management.progress_monitoring import run as progress_monitoring
 
 def run():
     st.title("📅 Project Management")
