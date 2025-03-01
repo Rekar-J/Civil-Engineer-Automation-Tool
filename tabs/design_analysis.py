@@ -1,5 +1,5 @@
+import streamlit as st
 import pandas as pd
-import numpy as np
 
 # Structural Analysis Section
 def run_structural_analysis():
@@ -30,7 +30,6 @@ def run_structural_analysis():
     st.write(f"- **Total Load:** {total_load} kN")
     st.write(f"- **Maximum Load:** {max_load} kN")
     st.success("Ensure compliance with **ACI design load requirements**.")
-    
 
 # Geotechnical Analysis Section
 def run_geotechnical_analysis():
