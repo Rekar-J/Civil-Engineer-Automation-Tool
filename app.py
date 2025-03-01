@@ -18,12 +18,12 @@ from streamlit_cookies_manager import EncryptedCookieManager
 from sidebar import render_sidebar
 from home import run as run_home
 
-# Use absolute imports for your packages.
-from design_analysis import run as run_design_analysis
-from project_management import run as run_project_management
-from compliance_reporting import run as run_compliance_reporting
-from tools_utilities import run as run_tools_utilities
-from collaboration_documentation import run as run_collaboration_documentation
+# Use absolute imports for your packages inside the "tabs" folder.
+from tabs.design_analysis.design_analysis import run as run_design_analysis
+from tabs.project_management.project_management import run as run_project_management
+from tabs.compliance_reporting.compliance_reporting import run as run_compliance_reporting
+from tabs.tools_utilities.tools_utilities import run as run_tools_utilities
+from tabs.collaboration_documentation.collaboration_documentation import run as run_collaboration_documentation
 
 from pushpull import (
     pull_database, push_database,
