@@ -10,43 +10,13 @@ def run_structural_analysis():
     # Load options dropdown
     load_options = ["Dead Load", "Live Load", "Wind Load", "Seismic Load", "Snow Load"]
     selected_load = st.selectbox("Select Load Type", load_options, key="struct_load_type")
-    load_value = st.number_input("Enter Load Value (kN)", min_value=0.0, key="struct_load_value")
+    load_value = st.number_input("Enter Load Value (kN)", min_value=0, key="struct_load_value")
 
-    # Store structural data in session state
     if "structural_data" not in st.session_state:
-        st.session_state.structural_data = pd.DataFrame(columns=["Load Type", "Load Value (kN)", "Moment (kNm)", "Shear (kN)", "Load Factor"])
+        st.session_state.structural_data = pd.DataFrame(columns=["Load Type", "Load Value (kN)"])
 
     if st.button("Add Load", key="add_struct_load"):
-        # Calculate moment and shear based on load type
-        if selected_load == "Dead Load":
-            moment = load_value * 2  # Example calculation for moment (simplified)
-            shear = load_value * 1.5  # Example calculation for shear (simplified)
-            load_factor = 1.0  # Dead Load has a load factor of 1.0
-        elif selected_load == "Live Load":
-            moment = load_value * 1.8  # Example calculation for moment (simplified)
-            shear = load_value * 1.2  # Example calculation for shear (simplified)
-            load_factor = 1.6  # Live Load typically has a higher load factor
-        elif selected_load == "Wind Load":
-            moment = load_value * 2.5  # Example calculation for moment (simplified)
-            shear = load_value * 2.0  # Example calculation for shear (simplified)
-            load_factor = 1.3  # Wind Load has a different load factor
-        elif selected_load == "Seismic Load":
-            moment = load_value * 3.0  # Example calculation for moment (simplified)
-            shear = load_value * 2.5  # Example calculation for shear (simplified)
-            load_factor = 1.5  # Seismic Load has a different load factor
-        elif selected_load == "Snow Load":
-            moment = load_value * 1.6  # Example calculation for moment (simplified)
-            shear = load_value * 1.3  # Example calculation for shear (simplified)
-            load_factor = 1.4  # Snow Load has a different load factor
-
-        # Add new load data to session state
-        new_row = pd.DataFrame({
-            "Load Type": [selected_load],
-            "Load Value (kN)": [load_value],
-            "Moment (kNm)": [moment],
-            "Shear (kN)": [shear],
-            "Load Factor": [load_factor]
-        })
+        new_row = pd.DataFrame({"Load Type": [selected_load], "Load Value (kN)": [load_value]})
         st.session_state.structural_data = pd.concat([st.session_state.structural_data, new_row], ignore_index=True)
 
     st.write("### Load Data")
@@ -55,27 +25,10 @@ def run_structural_analysis():
     # Perform calculations
     total_load = st.session_state.structural_data["Load Value (kN)"].sum()
     max_load = st.session_state.structural_data["Load Value (kN)"].max()
-    total_moment = st.session_state.structural_data["Moment (kNm)"].sum()
-    total_shear = st.session_state.structural_data["Shear (kN)"].sum()
 
     st.write("### Analysis Results")
     st.write(f"- **Total Load:** {total_load} kN")
     st.write(f"- **Maximum Load:** {max_load} kN")
-    st.write(f"- **Total Moment (kNm):** {total_moment}")
-    st.write(f"- **Total Shear (kN):** {total_shear}")
-
-    # Load combinations and checks (simplified examples for ACI)
-    load_combinations = [
-        ("1.4 * Dead Load", 1.4 * total_load),
-        ("1.6 * Live Load + 1.0 * Dead Load", 1.6 * total_load + 1.0 * total_load),
-        ("1.2 * Dead Load + 1.6 * Live Load", 1.2 * total_load + 1.6 * total_load),
-        ("1.0 * Dead Load + 1.0 * Wind Load", 1.0 * total_load + 1.0 * total_load)
-    ]
-    
-    st.write("### Load Combinations")
-    for combo, value in load_combinations:
-        st.write(f"- **{combo}:** {value} kN")
-    
     st.success("Ensure compliance with **ACI design load requirements**.")
     
 
