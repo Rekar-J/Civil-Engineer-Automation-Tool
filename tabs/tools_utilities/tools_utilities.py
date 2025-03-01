@@ -1,5 +1,5 @@
 import streamlit as st
-from tabs.automated_design import run as automated_design
+from tabs.automated_design import run as automated_design  # Ensure this path is correct
 from tabs.quantity_takeoff import run as quantity_takeoff
 from tabs.data_visualization import run as data_visualization
 
