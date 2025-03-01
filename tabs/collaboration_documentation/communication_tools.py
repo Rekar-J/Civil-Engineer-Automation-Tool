@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 
+# Define file paths for message and meeting storage
 MESSAGES_FILE = "uploads/messages.csv"
 MEETINGS_FILE = "uploads/meetings.csv"
 
@@ -10,7 +11,7 @@ def run():
     st.subheader("📌 About Communication Tools")
     st.info("Facilitates team communication with **messaging, notifications, and meeting scheduling**.")
 
-    # Ensure message storage exists
+    # Ensure the uploads directory and necessary files exist
     if not os.path.exists("uploads"):
         os.makedirs("uploads")
     if not os.path.exists(MESSAGES_FILE):
