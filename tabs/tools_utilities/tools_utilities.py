@@ -5,16 +5,15 @@ from tabs.data_visualization import run as data_visualization
 
 def run():
     st.title("🔧 Tools and Utilities")
-
     st.write("This section provides tools for CAD design, cost estimation, and data visualization.")
 
     tabs = st.tabs(["Automated Design & Drafting", "Quantity Takeoff & Cost Estimation", "Data Visualization"])
 
     with tabs[0]:  
-        automated_design()
+        automated_design()  # Call the run function from automated_design.py
 
     with tabs[1]:  
-        quantity_takeoff()
+        quantity_takeoff()  # Call the run function from quantity_takeoff.py
 
     with tabs[2]:  
-        data_visualization()
+        data_visualization()  # Call the run function from data_visualization.py
