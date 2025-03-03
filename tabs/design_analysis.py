@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 
 # Structural Analysis Section
 def run_structural_analysis():
@@ -10,7 +11,7 @@ def run_structural_analysis():
     # Load options dropdown
     load_options = ["Dead Load", "Live Load", "Wind Load", "Seismic Load", "Snow Load"]
     selected_load = st.selectbox("Select Load Type", load_options, key="struct_load_type")
-    load_value = st.number_input("Enter Load Value (kN)", min_value=0, key="struct_load_value")
+    load_value = st.number_input("Enter Load Value (kN)", min_value=0.0, key="struct_load_value")
 
     if "structural_data" not in st.session_state:
         st.session_state.structural_data = pd.DataFrame(columns=["Load Type", "Load Value (kN)"])
@@ -25,11 +26,56 @@ def run_structural_analysis():
     # Perform calculations
     total_load = st.session_state.structural_data["Load Value (kN)"].sum()
     max_load = st.session_state.structural_data["Load Value (kN)"].max()
-
+    
     st.write("### Analysis Results")
-    st.write(f"- **Total Load:** {total_load} kN")
-    st.write(f"- **Maximum Load:** {max_load} kN")
+    st.write(f"- **Total Load:** {total_load:.2f} kN")
+    st.write(f"- **Maximum Load:** {max_load:.2f} kN")
     st.success("Ensure compliance with **ACI design load requirements**.")
+
+    # Load Combination Analysis
+    st.subheader("🔹 Load Combination Analysis")
+    lc_factor = st.slider("Load Combination Factor", 1.0, 2.0, 1.4, 0.1)
+    factored_load = total_load * lc_factor
+    st.write(f"**Factored Load (ULS):** {factored_load:.2f} kN")
+    
+    # Beam Analysis
+    st.subheader("🔹 Beam Analysis")
+    beam_length = st.number_input("Enter Beam Length (m)", min_value=1.0, key="beam_length")
+    if st.button("Analyze Beam"):
+        reaction = factored_load / 2
+        bending_moment = (factored_load * beam_length ** 2) / 8
+        st.write(f"**Support Reaction:** {reaction:.2f} kN")
+        st.write(f"**Maximum Bending Moment:** {bending_moment:.2f} kN-m")
+
+    # Column Design
+    st.subheader("🔹 Column Design")
+    column_height = st.number_input("Enter Column Height (m)", min_value=1.0, key="column_height")
+    if st.button("Check Column Stability"):
+        critical_load = (np.pi ** 2 * 200e6 * (0.01 ** 2)) / (column_height ** 2)  # Assumed properties
+        st.write(f"**Critical Buckling Load:** {critical_load:.2f} kN")
+        if factored_load < critical_load:
+            st.success("Column is stable.")
+        else:
+            st.error("Column is unstable! Consider redesign.")
+
+    # Slab Analysis
+    st.subheader("🔹 Slab Analysis")
+    slab_type = st.selectbox("Select Slab Type", ["One-Way", "Two-Way"])
+    slab_span = st.number_input("Enter Slab Span (m)", min_value=1.0, key="slab_span")
+    if st.button("Analyze Slab"):
+        slab_load = factored_load / slab_span
+        st.write(f"**Slab Load Distribution:** {slab_load:.2f} kN/m")
+
+    # Foundation Design
+    st.subheader("🔹 Foundation Design")
+    soil_bearing_capacity = st.number_input("Enter Soil Bearing Capacity (kN/m²)", min_value=50.0, key="soil_bc")
+    if st.button("Check Foundation Stability"):
+        foundation_area = factored_load / soil_bearing_capacity
+        st.write(f"**Required Foundation Area:** {foundation_area:.2f} m²")
+        if foundation_area < 10:
+            st.success("Foundation design is safe.")
+        else:
+            st.error("Increase foundation size or improve soil bearing capacity.")
 
 # Geotechnical Analysis Section
 def run_geotechnical_analysis():
