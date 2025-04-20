@@ -1,4 +1,4 @@
-# Sidebar styling
+# (unused for now, but keep for future)
 def apply_sidebar_styles():
     return {
         "container": {"padding": "5px"},
