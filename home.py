@@ -1,101 +1,68 @@
 import streamlit as st
-import os
-import requests
+import numpy as np
+import matplotlib.pyplot as plt
 
-def run():
-    st.title("🏠 Welcome to the Civil Engineer Automation Tool (Home)")
+st.title("Civil Engineering Tool - Beam Analyzer")
 
-    # Ensure username is displayed
-    if "username" in st.session_state and st.session_state["username"]:
-        st.write(f"### 🔵 Welcome, **{st.session_state['username']}!**")
-    else:
-        st.warning("⚠️ Username not found in session state. Try logging in again.")
+# Input parameters
+st.header("Beam Parameters")
+L = st.number_input("Beam Length (m)", min_value=1.0, value=6.0)
+E = st.number_input("Modulus of Elasticity (Pa)", min_value=1e7, value=200e9)
+I = st.number_input("Moment of Inertia (m^4)", min_value=1e-9, value=8.1e-6)
 
-    # Two-column advanced UI layout
-    col1, col2 = st.columns([2, 1])
+st.header("Point Load")
+load_pos = st.number_input("Load Position (m)", min_value=0.0, max_value=L, value=3.0)
+load_mag = st.number_input("Load Magnitude (N, negative is downward)", value=-10000.0)
 
-    with col1:
-        st.markdown("""
-        ### About This Application
-        The **Civil Engineer Automation Tool** is a comprehensive platform 
-        designed for civil engineers to automate tasks such as structural 
-        analysis, project management, compliance checks, and collaboration.
+if st.button("Analyze Beam"):
+    # Structural analysis
+    def analyze_beam(length, point_loads):
+        x = np.linspace(0, length, 500)
+        V = np.zeros_like(x)
+        M = np.zeros_like(x)
 
-        **Key Features**:
-        - 🏗️ **Structural & Geotechnical Analysis**
-        - 🌊 **Hydraulic & Hydrological Simulations**
-        - 📅 **Project Management & Scheduling**
-        - ✅ **Compliance Verification & Reporting**
-        - 🔗 **Collaboration & Documentation Tools**
-        
-        Use the panel on the right to customize the home banner image below 
-        without leaving or refreshing this page. 
-        """)
+        total_moment = sum(-load['magnitude'] * (length - load['position']) for load in point_loads)
+        R1 = total_moment / length
+        R2 = sum(load['magnitude'] for load in point_loads) - R1
 
-    # Path to the current home banner image
-    HOME_BANNER_PATH = "uploads/home header image.jpg"
+        for load in point_loads:
+            P = load['magnitude']
+            a = load['position']
+            for i, xi in enumerate(x):
+                if xi < a:
+                    V[i] += R1
+                    M[i] += R1 * xi
+                else:
+                    V[i] += R1 + P
+                    M[i] += R1 * xi + P * (xi - a)
+            V -= R2
+            M -= R2 * x
+        return x, V, M, R1, R2
 
-    with col2:
-        st.subheader("Current banner Image")
-        # Check if the file exists or if a new image was just uploaded
-        if os.path.exists(HOME_BANNER_PATH):
-            st.image(HOME_BANNER_PATH, use_container_width=True)
-        else:
-            st.info("No banner image found. Please upload or set one below.")
+    loads = [{'position': load_pos, 'magnitude': load_mag}]
+    x, shear, moment, R1, R2 = analyze_beam(L, loads)
 
-    st.write("---")
+    st.subheader("Support Reactions")
+    st.write(f"Left Support (R1): {R1:.2f} N")
+    st.write(f"Right Support (R2): {R2:.2f} N")
 
-    # Expander to manage the home banner image
-    with st.expander("Manage Home Banner Image"):
-        st.markdown("""
-        You can **upload a local image** from your computer or **pull an image from the web** 
-        using a URL. You can also **delete/reset** the current banner image.
-        
-        Once updated, the new banner will appear **immediately** below, 
-        and your session remains active without requiring a refresh.
-        """)
+    st.subheader("Maximum Bending Moment")
+    st.write(f"Max Moment: {max(moment):.2f} Nm")
 
-        # --- Option 1: Upload from local desktop ---
-        uploaded_file = st.file_uploader("Upload a local image (PNG/JPG)", 
-                                         type=["png", "jpg", "jpeg"], 
-                                         key="home_local_image")
-        if uploaded_file is not None:
-            # Save the uploaded image
-            file_path = HOME_BANNER_PATH
-            with open(file_path, "wb") as f:
-                f.write(uploaded_file.getbuffer())
-            st.image(file_path, use_container_width=True)
+    st.subheader("Shear Force Diagram")
+    fig_v, ax_v = plt.subplots()
+    ax_v.plot(x, shear)
+    ax_v.set_title("Shear Force Diagram")
+    ax_v.set_xlabel("Beam Length (m)")
+    ax_v.set_ylabel("Shear Force (N)")
+    ax_v.grid(True)
+    st.pyplot(fig_v)
 
-        st.write("---")
-
-        # --- Option 2: Use a web image URL ---
-        url_image = st.text_input("Or enter an image URL:", key="home_web_image_url")
-        if st.button("Fetch & Set Image from URL", key="fetch_url_image"):
-            if url_image.strip() == "":
-                st.error("Please enter a valid URL.")
-            else:
-                try:
-                    response = requests.get(url_image, timeout=10)
-                    content_type = response.headers.get("Content-Type", "")
-                    if response.status_code == 200 and content_type.startswith("image"):
-                        with open(HOME_BANNER_PATH, "wb") as f:
-                            f.write(response.content)
-                        st.image(HOME_BANNER_PATH, use_container_width=True)
-                    else:
-                        st.error("Could not fetch a valid image from the provided URL.")
-                except Exception as e:
-                    st.error(f"Error fetching image: {e}")
-
-        st.write("---")
-
-        # --- Option 3: Delete/Reset the current banner ---
-        if st.button("Delete/Reset Banner", key="delete_banner"):
-            if os.path.exists(HOME_BANNER_PATH):
-                os.remove(HOME_BANNER_PATH)
-            else:
-                st.info("No home banner image found to delete.")
-
-        st.write("---")
-
-    st.write("### Quick Start Guide")
-    st.info("Use the left sidebar to navigate different sections of the tool.")
+    st.subheader("Bending Moment Diagram")
+    fig_m, ax_m = plt.subplots()
+    ax_m.plot(x, moment)
+    ax_m.set_title("Bending Moment Diagram")
+    ax_m.set_xlabel("Beam Length (m)")
+    ax_m.set_ylabel("Moment (Nm)")
+    ax_m.grid(True)
+    st.pyplot(fig_m)
