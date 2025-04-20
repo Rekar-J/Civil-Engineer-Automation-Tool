@@ -1,68 +1,86 @@
 import streamlit as st
-import numpy as np
+from core import Beam, Support, Load
+from plots import plot_beam_diagram, plot_sfd, plot_bmd
 import matplotlib.pyplot as plt
 
-st.title("Civil Engineering Tool - Beam Analyzer")
+st.set_page_config(page_title="Civil Beam Analyzer", layout="wide")
 
-# Input parameters
-st.header("Beam Parameters")
-L = st.number_input("Beam Length (m)", min_value=1.0, value=6.0)
-E = st.number_input("Modulus of Elasticity (Pa)", min_value=1e7, value=200e9)
-I = st.number_input("Moment of Inertia (m^4)", min_value=1e-9, value=8.1e-6)
+st.title("Civil Beam Analyzer 📐")
 
-st.header("Point Load")
-load_pos = st.number_input("Load Position (m)", min_value=0.0, max_value=L, value=3.0)
-load_mag = st.number_input("Load Magnitude (N, negative is downward)", value=-10000.0)
+# Beam length input
+beam_length = st.number_input("Enter beam length (m):", min_value=1.0, step=0.5)
 
+# Initialize session state
+if "supports" not in st.session_state:
+    st.session_state.supports = []
+if "point_loads" not in st.session_state:
+    st.session_state.point_loads = []
+
+st.markdown("## 🧷 Add Supports")
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    support_type = st.selectbox("Support Type", ["pin", "roller", "fixed"])
+with col2:
+    support_position = st.number_input("Support Position (m)", min_value=0.0, max_value=beam_length, step=0.1)
+with col3:
+    if st.button("Add Support"):
+        st.session_state.supports.append(Support(support_position, support_type))
+        st.success(f"{support_type.capitalize()} support added at {support_position} m")
+
+# Show current supports
+if st.session_state.supports:
+    st.markdown("**Current Supports:**")
+    for idx, sup in enumerate(st.session_state.supports):
+        st.markdown(f"- `{sup.kind}` at {sup.position} m")
+
+st.markdown("---")
+st.markdown("## 🪶 Add Point Loads")
+
+col4, col5, col6 = st.columns(3)
+
+with col4:
+    load_magnitude = st.number_input("Magnitude (kN)", step=0.1, format="%.2f")
+with col5:
+    load_position = st.number_input("Load Position (m)", min_value=0.0, max_value=beam_length, step=0.1)
+with col6:
+    if st.button("Add Load"):
+        st.session_state.point_loads.append(Load("point", load_position, magnitude=load_magnitude))
+        st.success(f"Point load of {load_magnitude} kN added at {load_position} m")
+
+# Show current point loads
+if st.session_state.point_loads:
+    st.markdown("**Current Point Loads:**")
+    for idx, load in enumerate(st.session_state.point_loads):
+        st.markdown(f"- `{load.kind}` load of {load.magnitude} kN at {load.position} m")
+
+st.markdown("---")
+
+# Analyze button
 if st.button("Analyze Beam"):
-    # Structural analysis
-    def analyze_beam(length, point_loads):
-        x = np.linspace(0, length, 500)
-        V = np.zeros_like(x)
-        M = np.zeros_like(x)
+    beam = Beam(beam_length)
 
-        total_moment = sum(-load['magnitude'] * (length - load['position']) for load in point_loads)
-        R1 = total_moment / length
-        R2 = sum(load['magnitude'] for load in point_loads) - R1
+    for support in st.session_state.supports:
+        beam.add_support(support)
 
-        for load in point_loads:
-            P = load['magnitude']
-            a = load['position']
-            for i, xi in enumerate(x):
-                if xi < a:
-                    V[i] += R1
-                    M[i] += R1 * xi
-                else:
-                    V[i] += R1 + P
-                    M[i] += R1 * xi + P * (xi - a)
-            V -= R2
-            M -= R2 * x
-        return x, V, M, R1, R2
+    for load in st.session_state.point_loads:
+        beam.add_point_load(load)
 
-    loads = [{'position': load_pos, 'magnitude': load_mag}]
-    x, shear, moment, R1, R2 = analyze_beam(L, loads)
+    x, V, M = beam.analyze()
 
-    st.subheader("Support Reactions")
-    st.write(f"Left Support (R1): {R1:.2f} N")
-    st.write(f"Right Support (R2): {R2:.2f} N")
+    st.markdown("## 🖼️ Beam Diagram")
+    st.pyplot(plot_beam_diagram(beam))
 
-    st.subheader("Maximum Bending Moment")
-    st.write(f"Max Moment: {max(moment):.2f} Nm")
+    st.markdown("## 📉 Shear Force Diagram (SFD)")
+    st.pyplot(plot_sfd(x, V))
 
-    st.subheader("Shear Force Diagram")
-    fig_v, ax_v = plt.subplots()
-    ax_v.plot(x, shear)
-    ax_v.set_title("Shear Force Diagram")
-    ax_v.set_xlabel("Beam Length (m)")
-    ax_v.set_ylabel("Shear Force (N)")
-    ax_v.grid(True)
-    st.pyplot(fig_v)
+    st.markdown("## 📈 Bending Moment Diagram (BMD)")
+    st.pyplot(plot_bmd(x, M))
 
-    st.subheader("Bending Moment Diagram")
-    fig_m, ax_m = plt.subplots()
-    ax_m.plot(x, moment)
-    ax_m.set_title("Bending Moment Diagram")
-    ax_m.set_xlabel("Beam Length (m)")
-    ax_m.set_ylabel("Moment (Nm)")
-    ax_m.grid(True)
-    st.pyplot(fig_m)
+st.markdown("---")
+
+if st.button("Reset All"):
+    st.session_state.supports = []
+    st.session_state.point_loads = []
+    st.success("Session reset — ready to start fresh.")
