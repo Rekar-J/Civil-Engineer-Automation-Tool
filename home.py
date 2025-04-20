@@ -1,6 +1,7 @@
+# home.py
+
 import streamlit as st
 import numpy as np
-
 from core import Beam
 from plots import plot_sfd, plot_bmd
 
@@ -21,7 +22,7 @@ def run():
             f"Support #{i+1} position (m)",
             min_value=0.0,
             max_value=length,
-            value=0.0 if i == 0 else length,
+            value=(0.0 if i == 0 else length),
             key=f"sup_pos_{i}",
         )
         sup_type = st.selectbox(
@@ -47,12 +48,13 @@ def run():
         )
         mag = st.number_input(
             f"Load #{i+1} magnitude (kN)",
+            min_value=0.0,
             value=10.0,
             key=f"pl_mag_{i}",
         )
         point_loads.append({"pos": pos, "mag": mag})
 
-    # --- Uniformly Distributed Loads (UDLs) ---
+    # --- Uniformly Distributed Loads ---
     st.write("#### Uniformly Distributed Loads")
     num_udls = st.number_input(
         "How many UDLs?", min_value=0, value=0, step=1
@@ -75,44 +77,40 @@ def run():
         )
         intensity = st.number_input(
             f"UDL #{i+1} intensity (kN/m)",
+            min_value=0.0,
             value=5.0,
             key=f"udl_int_{i}",
         )
         udls.append({"start": start, "end": end, "int": intensity})
 
-    # --- Build and Solve the Beam ---
-    # pass empty lists for supports and loads to satisfy the new __init__
+    # --- Build & Solve ---
     beam = Beam(length, supports=[], loads=[])
-
-    # register supports
     for sup in supports:
         beam.add_support(sup["pos"], sup["type"])
-
-    # register point loads
     for pl in point_loads:
         beam.add_point_load(pl["pos"], pl["mag"])
-
-    # register UDLs
     for ud in udls:
         beam.add_distributed_load(ud["start"], ud["end"], ud["int"])
 
-    # only analyze when ready
     if st.button("🔎 Analyze"):
-        beam.analyze()
+        try:
+            beam.analyze()
+            st.write("#### Support Reactions")
+            for i, R in enumerate(beam.reactions):
+                pos = supports[i]["pos"] if i < len(supports) else "?"
+                st.write(f"> Support #{i+1} @ {pos:.2f} m → **{R:.2f} kN**")
 
-        # --- Display Reactions ---
-        st.write("#### Support Reactions")
-        for i, R in enumerate(beam.reactions):
-            pos = supports[i]["pos"] if i < len(supports) else "?"
-            st.write(f"> Support #{i+1} at {pos} m → {R:.2f} kN")
+            # Max moment
+            xs = np.linspace(0, beam.length, 200)
+            max_M = max(abs(beam.moment_at(x)) for x in xs)
+            st.write(f"#### Maximum Bending Moment: **{max_M:.2f} kN·m**")
 
-        # --- Display Maximum Moment ---
-        xs = np.linspace(0, beam.length, 200)
-        max_M = max(abs(beam.moment_at(x)) for x in xs)
-        st.write(f"#### Maximum Bending Moment: **{max_M:.2f} kN·m**")
+            # Diagrams
+            st.write("#### Shear Force Diagram")
+            st.pyplot(plot_sfd(beam))
 
-        # --- Plot Diagrams ---
-        st.write("#### Shear Force Diagram")
-        st.pyplot(plot_sfd(beam))
-        st.write("#### Bending Moment Diagram")
-        st.pyplot(plot_bmd(beam))
+            st.write("#### Bending Moment Diagram")
+            st.pyplot(plot_bmd(beam))
+
+        except Exception as e:
+            st.error(f"Analysis error: {e}")
