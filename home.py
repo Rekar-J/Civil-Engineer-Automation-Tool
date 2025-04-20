@@ -1,86 +1,56 @@
 import streamlit as st
+st.set_page_config(page_title="Civil Beam Analyzer", layout="wide")
+
 from core import Beam, Support, Load
 from plots import plot_beam_diagram, plot_sfd, plot_bmd
 import matplotlib.pyplot as plt
 
-st.set_page_config(page_title="Civil Beam Analyzer", layout="wide")
+def run():
+    st.title("Civil Beam Analyzer 📐")
 
-st.title("Civil Beam Analyzer 📐")
+    st.markdown("Use this tool to define a beam, apply loads and supports, and visualize the Shear Force Diagram (SFD) and Bending Moment Diagram (BMD).")
 
-# Beam length input
-beam_length = st.number_input("Enter beam length (m):", min_value=1.0, step=0.5)
+    st.subheader("1. Define Beam Properties")
+    length = st.number_input("Beam Length (m)", min_value=1.0, step=0.5)
 
-# Initialize session state
-if "supports" not in st.session_state:
-    st.session_state.supports = []
-if "point_loads" not in st.session_state:
-    st.session_state.point_loads = []
+    st.subheader("2. Add Supports")
+    support_positions = st.text_input("Support Positions (comma-separated in meters)", "0, 5")
 
-st.markdown("## 🧷 Add Supports")
+    st.subheader("3. Add Loads")
+    point_loads_str = st.text_area("Point Loads (Format: pos(kN), e.g. 2@10, 4@5)", "2@10, 4@5")
+    udl_loads_str = st.text_area("UDLs (Format: start,end,intensity, e.g. 2,4,3)", "2,4,3")
 
-col1, col2, col3 = st.columns(3)
+    if st.button("Analyze"):
+        beam = Beam(length)
 
-with col1:
-    support_type = st.selectbox("Support Type", ["pin", "roller", "fixed"])
-with col2:
-    support_position = st.number_input("Support Position (m)", min_value=0.0, max_value=beam_length, step=0.1)
-with col3:
-    if st.button("Add Support"):
-        st.session_state.supports.append(Support(support_position, support_type))
-        st.success(f"{support_type.capitalize()} support added at {support_position} m")
+        try:
+            supports = [Support(float(p)) for p in support_positions.split(",")]
+            for s in supports:
+                beam.add_support(s)
 
-# Show current supports
-if st.session_state.supports:
-    st.markdown("**Current Supports:**")
-    for idx, sup in enumerate(st.session_state.supports):
-        st.markdown(f"- `{sup.kind}` at {sup.position} m")
+            if point_loads_str.strip():
+                point_loads = point_loads_str.split(",")
+                for p in point_loads:
+                    pos, mag = map(float, p.split("@"))
+                    beam.add_load(Load("point", magnitude=mag, position=pos))
 
-st.markdown("---")
-st.markdown("## 🪶 Add Point Loads")
+            if udl_loads_str.strip():
+                udls = udl_loads_str.split(",")
+                for i in range(0, len(udls), 3):
+                    start = float(udls[i])
+                    end = float(udls[i+1])
+                    intensity = float(udls[i+2])
+                    beam.add_load(Load("udl", magnitude=intensity, start=start, end=end))
 
-col4, col5, col6 = st.columns(3)
+            beam.analyze()
 
-with col4:
-    load_magnitude = st.number_input("Magnitude (kN)", step=0.1, format="%.2f")
-with col5:
-    load_position = st.number_input("Load Position (m)", min_value=0.0, max_value=beam_length, step=0.1)
-with col6:
-    if st.button("Add Load"):
-        st.session_state.point_loads.append(Load("point", load_position, magnitude=load_magnitude))
-        st.success(f"Point load of {load_magnitude} kN added at {load_position} m")
+            st.success("Analysis complete!")
 
-# Show current point loads
-if st.session_state.point_loads:
-    st.markdown("**Current Point Loads:**")
-    for idx, load in enumerate(st.session_state.point_loads):
-        st.markdown(f"- `{load.kind}` load of {load.magnitude} kN at {load.position} m")
+            st.subheader("4. Beam Visualization")
 
-st.markdown("---")
+            st.pyplot(plot_beam_diagram(beam))
+            st.pyplot(plot_sfd(beam))
+            st.pyplot(plot_bmd(beam))
 
-# Analyze button
-if st.button("Analyze Beam"):
-    beam = Beam(beam_length)
-
-    for support in st.session_state.supports:
-        beam.add_support(support)
-
-    for load in st.session_state.point_loads:
-        beam.add_point_load(load)
-
-    x, V, M = beam.analyze()
-
-    st.markdown("## 🖼️ Beam Diagram")
-    st.pyplot(plot_beam_diagram(beam))
-
-    st.markdown("## 📉 Shear Force Diagram (SFD)")
-    st.pyplot(plot_sfd(x, V))
-
-    st.markdown("## 📈 Bending Moment Diagram (BMD)")
-    st.pyplot(plot_bmd(x, M))
-
-st.markdown("---")
-
-if st.button("Reset All"):
-    st.session_state.supports = []
-    st.session_state.point_loads = []
-    st.success("Session reset — ready to start fresh.")
+        except Exception as e:
+            st.error(f"Error in input or analysis: {e}")
