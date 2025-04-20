@@ -24,19 +24,19 @@ class Beam:
 
     def analyze(self):
         """Convert UDLs to equivalent point loads and compute support reactions."""
-        # Convert UDLs
+        # Convert UDLs to point loads at their centroid
         for udl in self.distributed_loads:
             total = udl["int"] * (udl["end"] - udl["start"])
             x_eq = (udl["start"] + udl["end"]) / 2
             self.loads.append({"pos": x_eq, "mag": total})
 
         if len(self.supports) != 2:
-            raise ValueError("Exactly two supports are required.")
+            raise ValueError("Exactly two supports are required for reaction calculations.")
 
         A, B = self.supports
         a, b = A["pos"], B["pos"]
 
-        # ΣM about A = 0 → Rb*(b−a) = Σ[F_i*(x_i − a)]
+        # Sum of moments about A = 0 → Rb*(b−a) = Σ[F_i*(x_i − a)]
         moment = sum(l["mag"] * (l["pos"] - a) for l in self.loads)
         Rb = moment / (b - a)
         Ra = sum(l["mag"] for l in self.loads) - Rb
@@ -46,11 +46,11 @@ class Beam:
     def shear_at(self, x):
         """Shear force at position x."""
         V = 0.0
-        # add reactions to left
+        # add reactions to the left of x
         for idx, sup in enumerate(self.supports):
             if x >= sup["pos"]:
                 V += self.reactions[idx]
-        # subtract loads to left
+        # subtract point‐loads to the left of x
         for l in self.loads:
             if l["pos"] <= x:
                 V -= l["mag"]
@@ -59,11 +59,11 @@ class Beam:
     def moment_at(self, x):
         """Bending moment at position x."""
         M = 0.0
-        # reactions
+        # contributions from reactions
         for idx, sup in enumerate(self.supports):
             if x >= sup["pos"]:
                 M += self.reactions[idx] * (x - sup["pos"])
-        # loads
+        # contributions from loads
         for l in self.loads:
             if l["pos"] <= x:
                 M -= l["mag"] * (x - l["pos"])
