@@ -1,115 +1,98 @@
-import numpy as np
+# core.py
 
+from dataclasses import dataclass
+from typing import List
+
+
+@dataclass
 class Support:
-    def __init__(self, position, kind='pin'):
-        self.position = position
-        self.kind = kind  # 'pin', 'roller', 'fixed'
-        self.reaction = 0.0
+    position: float
+    type: str  # 'fixed', 'pinned', or 'roller'
 
-class PointLoad:
-    def __init__(self, magnitude, position):
-        self.magnitude = magnitude
-        self.position = position
 
-class DistributedLoad:
-    def __init__(self, magnitude, start, end):
-        self.magnitude = magnitude  # uniform load (kN/m)
-        self.start = start
-        self.end = end
+@dataclass
+class Load:
+    magnitude: float
+    position: float
+    type: str  # 'point', 'udl', or 'moment'
 
-    def equivalent_point_load(self):
-        length = self.end - self.start
-        return PointLoad(
-            magnitude=self.magnitude * length,
-            position=(self.start + self.end) / 2
-        )
 
+@dataclass
 class Beam:
-    def __init__(self, length):
-        self.length = length
-        self.supports = []
-        self.point_loads = []
-        self.distributed_loads = []
+    length: float
+    supports: List[Support]
+    loads: List[Load]
 
-    def add_support(self, position, kind='pin'):
-        self.supports.append(Support(position, kind))
-
-    def add_point_load(self, magnitude, position):
-        self.point_loads.append(PointLoad(magnitude, position))
-
-    def add_distributed_load(self, magnitude, start, end):
-        self.distributed_loads.append(DistributedLoad(magnitude, start, end))
-
-    def compute_reactions(self):
+    def calculate_reactions(self):
         """
-        Currently supports two supports (simply supported beam).
-        For fixed supports or indeterminate systems, symbolic methods are needed.
+        Very basic reaction calculator:
+        - Handles statically determinate beams with two supports and point loads only.
+        - Only works for simply supported beam with pinned and roller.
         """
         if len(self.supports) != 2:
-            raise NotImplementedError("Only simply supported beams with 2 supports are supported.")
+            raise ValueError("Only two-support systems are supported in this version.")
 
         a = self.supports[0].position
         b = self.supports[1].position
         L = b - a
+        total_load = sum(load.magnitude for load in self.loads if load.type == 'point')
+        moments = sum(load.magnitude * (load.position - a) for load in self.loads if load.type == 'point')
 
-        # Combine point loads and equivalent point loads from distributed loads
-        all_loads = self.point_loads[:]
-        for dload in self.distributed_loads:
-            all_loads.append(dload.equivalent_point_load())
+        R2 = moments / L
+        R1 = total_load - R2
 
-        total_moment_b = sum([load.magnitude * (load.position - b) for load in all_loads])
-        reaction_a = total_moment_b / L
-        total_load = sum([load.magnitude for load in all_loads])
-        reaction_b = total_load - reaction_a
+        return {
+            f"R@{a}": R1,
+            f"R@{b}": R2
+        }
 
-        self.supports[0].reaction = reaction_a
-        self.supports[1].reaction = reaction_b
+    def shear_force_diagram(self, step=0.1):
+        """
+        Returns list of tuples (x, shear) at each step.
+        Simplified for point loads only.
+        """
+        reactions = self.calculate_reactions()
+        shear_values = []
+        current_shear = 0
 
-        return reaction_a, reaction_b
+        x = 0
+        while x <= self.length:
+            current_shear = 0
+            for key, reaction in reactions.items():
+                pos = float(key.split('@')[1])
+                if x >= pos:
+                    current_shear += reaction
 
-    def shear_force(self, x):
-        V = 0.0
+            for load in self.loads:
+                if load.type == 'point' and x >= load.position:
+                    current_shear -= load.magnitude
 
-        for support in self.supports:
-            if x >= support.position:
-                V += support.reaction
+            shear_values.append((x, current_shear))
+            x += step
 
-        for load in self.point_loads:
-            if x >= load.position:
-                V -= load.magnitude
+        return shear_values
 
-        for dload in self.distributed_loads:
-            if x >= dload.start:
-                length = min(x, dload.end) - dload.start
-                if length > 0:
-                    V -= dload.magnitude * length
+    def bending_moment_diagram(self, step=0.1):
+        """
+        Returns list of tuples (x, moment) at each step.
+        Simplified for point loads only.
+        """
+        reactions = self.calculate_reactions()
+        moment_values = []
 
-        return V
+        x = 0
+        while x <= self.length:
+            moment = 0
+            for key, reaction in reactions.items():
+                pos = float(key.split('@')[1])
+                if x >= pos:
+                    moment += reaction * (x - pos)
 
-    def bending_moment(self, x):
-        M = 0.0
+            for load in self.loads:
+                if load.type == 'point' and x >= load.position:
+                    moment -= load.magnitude * (x - load.position)
 
-        for support in self.supports:
-            if x >= support.position:
-                M += support.reaction * (x - support.position)
+            moment_values.append((x, moment))
+            x += step
 
-        for load in self.point_loads:
-            if x >= load.position:
-                M -= load.magnitude * (x - load.position)
-
-        for dload in self.distributed_loads:
-            if x >= dload.start:
-                length = min(x, dload.end) - dload.start
-                if length > 0:
-                    a = dload.start
-                    w = dload.magnitude
-                    M -= w * length * (x - a - length / 2)
-
-        return M
-
-    def analyze(self, resolution=100):
-        self.compute_reactions()
-        x_vals = np.linspace(0, self.length, resolution)
-        V = np.array([self.shear_force(x) for x in x_vals])
-        M = np.array([self.bending_moment(x) for x in x_vals])
-        return x_vals, V, M
+        return moment_values
