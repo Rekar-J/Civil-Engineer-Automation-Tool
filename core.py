@@ -1,70 +1,136 @@
 # core.py
 
-import numpy as np
-
 class Beam:
     def __init__(self, length, supports=None, loads=None):
+        """
+        length : float
+            Span of the beam (m).
+        supports : list of dict, optional
+            Pre‐defined supports, each as {"pos": x, "type": "pin"/"roller"}.
+        loads : list of dict, optional
+            Pre‐defined point loads, each as {"pos": x, "mag": kN}.
+        """
         self.length = length
-        self.supports = supports if supports is not None else []
-        self.loads = loads if loads is not None else []
-        self.distributed_loads = []
+        self.supports = []
+        self.point_loads = []
+        self.udls = []  # uniform distributed loads
         self.reactions = []
 
-    def add_support(self, pos, sup_type):
-        """Register a support at position pos of type 'pin' or 'roller'."""
+        # If user passed initial supports/loads, register them
+        if supports:
+            for sup in supports:
+                self.add_support(sup["pos"], sup["type"])
+        if loads:
+            for pl in loads:
+                self.add_point_load(pl["pos"], pl["mag"])
+
+    def add_support(self, pos, sup_type="pin"):
+        """Register a support at position pos (m)."""
+        if len(self.supports) >= 2:
+            raise ValueError("Only up to two supports are allowed.")
+        if not (0 <= pos <= self.length):
+            raise ValueError("Support position must be within [0, L].")
         self.supports.append({"pos": pos, "type": sup_type})
 
     def add_point_load(self, pos, mag):
-        """Register a point load at position pos (kN)."""
-        self.loads.append({"pos": pos, "mag": mag})
+        """Register a downward point‐load of magnitude mag (kN) at pos (m)."""
+        if not (0 <= pos <= self.length):
+            raise ValueError("Load position must be within [0, L].")
+        self.point_loads.append({"pos": pos, "mag": mag})
 
     def add_distributed_load(self, start, end, intensity):
-        """Register a uniform distributed load (kN/m) from start to end."""
-        self.distributed_loads.append({"start": start, "end": end, "int": intensity})
+        """
+        Register a uniform distributed load of intensity (kN/m)
+        acting from x=start to x=end.
+        """
+        if not (0 <= start < end <= self.length):
+            raise ValueError("UDL start/end must satisfy 0 ≤ start < end ≤ L.")
+        self.udls.append({"start": start, "end": end, "int": intensity})
 
     def analyze(self):
-        """Convert UDLs to equivalent point loads and compute support reactions."""
-        # Convert UDLs to point loads at their centroid
-        for udl in self.distributed_loads:
-            total = udl["int"] * (udl["end"] - udl["start"])
-            x_eq = (udl["start"] + udl["end"]) / 2
-            self.loads.append({"pos": x_eq, "mag": total})
-
+        """
+        Compute reactions at the two supports by static equilibrium.
+        Must have exactly 2 supports registered.
+        """
         if len(self.supports) != 2:
-            raise ValueError("Exactly two supports are required for reaction calculations.")
+            raise ValueError("Analysis requires exactly two supports.")
 
-        A, B = self.supports
-        a, b = A["pos"], B["pos"]
+        # Equivalent point‐loads for UDLs
+        equiv = []
+        for pl in self.point_loads:
+            equiv.append({"P": pl["mag"], "a": pl["pos"]})
+        for ud in self.udls:
+            w = ud["int"] * (ud["end"] - ud["start"])
+            a = (ud["start"] + ud["end"]) / 2
+            equiv.append({"P": w, "a": a})
 
-        # Sum of moments about A = 0 → Rb*(b−a) = Σ[F_i*(x_i − a)]
-        moment = sum(l["mag"] * (l["pos"] - a) for l in self.loads)
-        Rb = moment / (b - a)
-        Ra = sum(l["mag"] for l in self.loads) - Rb
+        # Total downward load
+        total_load = sum(item["P"] for item in equiv)
 
-        self.reactions = [Ra, Rb]
+        # Support positions
+        A, B = self.supports[0]["pos"], self.supports[1]["pos"]
+        Lspan = B - A
+        if Lspan <= 0:
+            raise ValueError("Second support must lie to the right of the first.")
+
+        # Sum of moments about B = RA * span
+        M_about_B = sum(item["P"] * (B - item["a"]) for item in equiv)
+        RA = M_about_B / Lspan
+        RB = total_load - RA
+
+        self.reactions = [RA, RB]
+        return self.reactions
 
     def shear_at(self, x):
-        """Shear force at position x."""
+        """
+        Shear force V(x): 
+        +Reactions to the left minus loads to the left of x.
+        """
         V = 0.0
-        # add reactions to the left of x
-        for idx, sup in enumerate(self.supports):
-            if x >= sup["pos"]:
-                V += self.reactions[idx]
-        # subtract point‐loads to the left of x
-        for l in self.loads:
-            if l["pos"] <= x:
-                V -= l["mag"]
+
+        # Add reactions
+        for i, sup in enumerate(self.supports):
+            if sup["pos"] <= x:
+                V += self.reactions[i]
+
+        # Subtract point loads
+        for pl in self.point_loads:
+            if pl["pos"] <= x:
+                V -= pl["mag"]
+
+        # Subtract UDL contributions
+        for ud in self.udls:
+            if ud["start"] < x:
+                length = min(x, ud["end"]) - ud["start"]
+                if length > 0:
+                    V -= ud["int"] * length
+
         return V
 
     def moment_at(self, x):
-        """Bending moment at position x."""
+        """
+        Bending moment M(x):
+        Integrate shear, or sum moments of each force about x.
+        """
         M = 0.0
-        # contributions from reactions
-        for idx, sup in enumerate(self.supports):
-            if x >= sup["pos"]:
-                M += self.reactions[idx] * (x - sup["pos"])
-        # contributions from loads
-        for l in self.loads:
-            if l["pos"] <= x:
-                M -= l["mag"] * (x - l["pos"])
+
+        # Contribution from reactions
+        for i, sup in enumerate(self.supports):
+            if sup["pos"] <= x:
+                M += self.reactions[i] * (x - sup["pos"])
+
+        # Contribution from point loads
+        for pl in self.point_loads:
+            if pl["pos"] <= x:
+                M -= pl["mag"] * (x - pl["pos"])
+
+        # Contribution from UDLs
+        for ud in self.udls:
+            if ud["start"] < x:
+                length = min(x, ud["end"]) - ud["start"]
+                if length > 0:
+                    w_eq = ud["int"] * length
+                    a_bar = ud["start"] + length / 2
+                    M -= w_eq * (x - a_bar)
+
         return M
