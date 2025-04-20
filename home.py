@@ -2,11 +2,8 @@ import streamlit as st
 import io
 import pandas as pd
 
-from core import Beam  # or however you import your main class
-from plots import (
-    plot_shear_force,
-    plot_bending_moment,
-)
+from core import Beam
+from plots import plot_sfd, plot_bmd
 
 def run():
     st.title("🛠 Beam Analysis")
@@ -42,13 +39,13 @@ def run():
     if st.button("🔍 Analyze Beam"):
         # Run the analysis
         beam.analyze()
-        reactions = beam.get_reactions()  # {'RA':…, 'RB':…}
-        max_moment = beam.get_max_moment()  # e.g. (value, position)
+        reactions   = beam.get_reactions()
+        max_moment  = beam.get_max_moment()
 
         # Display numeric results
         st.subheader("📊 Support Reactions")
         reactions_df = pd.DataFrame(
-            list(reactions.items()), 
+            list(reactions.items()),
             columns=["Support", "Reaction (kN)"]
         )
         st.dataframe(reactions_df)
@@ -69,7 +66,7 @@ def run():
 
         # Plot & export Shear Force
         st.subheader("📈 Shear Force Diagram")
-        fig_shear = plot_shear_force(beam)
+        fig_shear = plot_sfd(beam)
         st.pyplot(fig_shear)
         shear_buf = io.BytesIO()
         fig_shear.savefig(shear_buf, format="png", bbox_inches="tight")
@@ -82,7 +79,7 @@ def run():
 
         # Plot & export Bending Moment
         st.subheader("📉 Bending Moment Diagram")
-        fig_moment = plot_bending_moment(beam)
+        fig_moment = plot_bmd(beam)
         st.pyplot(fig_moment)
         moment_buf = io.BytesIO()
         fig_moment.savefig(moment_buf, format="png", bbox_inches="tight")
