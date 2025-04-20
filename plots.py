@@ -6,10 +6,9 @@ def plot_sfd(beam):
     Vs = [beam.shear_at(x) for x in xs]
     fig, ax = plt.subplots()
     ax.plot(xs, Vs)
-    ax.axhline(0, color='black', linewidth=0.5)
-    ax.set_ylabel("Shear (kN)")
+    ax.axhline(0, linewidth=0.5)
     ax.set_xlabel("x (m)")
-    ax.set_title("Shear Force Diagram")
+    ax.set_ylabel("Shear (kN)")
     return fig
 
 def plot_bmd(beam):
@@ -17,8 +16,7 @@ def plot_bmd(beam):
     Ms = [beam.moment_at(x) for x in xs]
     fig, ax = plt.subplots()
     ax.plot(xs, Ms)
-    ax.axhline(0, color='black', linewidth=0.5)
-    ax.set_ylabel("Moment (kN·m)")
+    ax.axhline(0, linewidth=0.5)
     ax.set_xlabel("x (m)")
-    ax.set_title("Bending Moment Diagram")
+    ax.set_ylabel("Moment (kN·m)")
     return fig
