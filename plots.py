@@ -1,79 +1,100 @@
-# plots.py
+# home.py
+import streamlit as st
+import os
+import requests
 
-import matplotlib.pyplot as plt
-import numpy as np
+# Ensure the uploads directory exists
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+HOME_BANNER_PATH = os.path.join(UPLOAD_DIR, "home header image.jpg")
 
-def plot_beam_diagram(beam):
-    """
-    Draw a simple schematic: the beam as a horizontal line,
-    supports as markers, point loads as arrows, UDLs as arrow‐arrays.
-    """
-    fig, ax = plt.subplots(figsize=(6, 2))
-    # Beam line
-    ax.hlines(0, 0, beam.length, colors='black', linewidth=4)
+def run():
+    st.title("🏠 Welcome to the Civil Engineer Automation Tool (Home)")
 
-    # Supports
-    for sup in beam.supports:
-        x = sup["pos"]
-        if sup["type"] == "pin":
-            marker = "^"
+    # Ensure username is displayed
+    if "username" in st.session_state and st.session_state["username"]:
+        st.write(f"### 🔵 Welcome, **{st.session_state['username']}!**")
+    else:
+        st.warning("⚠️ Username not found in session state. Try logging in again.")
+
+    # Two-column advanced UI layout
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        st.markdown("""
+        ### About This Application
+        The **Civil Engineer Automation Tool** is a comprehensive platform 
+        designed for civil engineers to automate tasks such as structural 
+        analysis, project management, compliance checks, and collaboration.
+
+        **Key Features**:
+        - 🏗️ **Structural & Geotechnical Analysis**
+        - 🌊 **Hydraulic & Hydrological Simulations**
+        - 📅 **Project Management & Scheduling**
+        - ✅ **Compliance Verification & Reporting**
+        - 🔗 **Collaboration & Documentation Tools**
+        
+        Use the panel on the right to customize the home banner image below 
+        without leaving or refreshing this page. 
+        """)
+
+    with col2:
+        st.subheader("Current Banner Image")
+        if os.path.exists(HOME_BANNER_PATH):
+            st.image(HOME_BANNER_PATH, use_container_width=True)
         else:
-            marker = "o"
-        ax.plot(x, 0, marker=marker, markersize=12, color="blue")
+            st.info("No banner image found. Please upload or set one below.")
 
-    # Point loads
-    for pl in beam.point_loads:
-        x, P = pl["pos"], pl["mag"]
-        # arrow up at top of beam
-        ax.arrow(x, 0.3, 0, -0.25, head_width=0.1, head_length=0.05, length_includes_head=True)
-        ax.text(x, 0.35, f"{P:.1f} kN", ha="center")
+    st.write("---")
 
-    # UDLs
-    for udl in beam.distributed_loads:
-        xs = np.linspace(udl["start"], udl["end"], 10)
-        for xi in xs:
-            ax.arrow(xi, 0.2, 0, -0.15, head_width=0.05, head_length=0.03, length_includes_head=True)
-        mid = 0.5 * (udl["start"] + udl["end"])
-        ax.text(mid, 0.25, f"{udl['int']:.1f} kN/m", ha="center")
+    # Expander to manage the home banner image
+    with st.expander("Manage Home Banner Image"):
+        st.markdown("""
+        You can **upload a local image** from your computer or **pull an image from the web** 
+        using a URL. You can also **delete/reset** the current banner image.
+        
+        Once updated, the new banner will appear **immediately** below, 
+        and your session remains active without requiring a refresh.
+        """)
 
-    ax.set_xlim(-0.1 * beam.length, 1.1 * beam.length)
-    ax.set_ylim(-0.5, 0.6)
-    ax.axis("off")
-    fig.tight_layout()
-    return fig
+        # Option 1: Upload from local desktop
+        uploaded_file = st.file_uploader("Upload a local image (PNG/JPG)", 
+                                         type=["png", "jpg", "jpeg"], 
+                                         key="home_local_image")
+        if uploaded_file is not None:
+            with open(HOME_BANNER_PATH, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            st.image(HOME_BANNER_PATH, use_container_width=True)
 
-def plot_sfd(beam, num=200):
-    """
-    Plot Shear Force Diagram V(x) over [0, length].
-    """
-    xs = np.linspace(0, beam.length, num)
-    Vs = [beam.shear_at(x) for x in xs]
+        st.write("---")
 
-    fig, ax = plt.subplots()
-    ax.plot(xs, Vs, linewidth=2)
-    ax.fill_between(xs, Vs, 0, where=(np.array(Vs) >= 0), alpha=0.3)
-    ax.fill_between(xs, Vs, 0, where=(np.array(Vs) <= 0), alpha=0.3)
-    ax.axhline(0, color="black", linewidth=0.8)
-    ax.set_ylabel("Shear V(x) [kN]")
-    ax.set_xlabel("x [m]")
-    ax.set_title("Shear Force Diagram")
-    fig.tight_layout()
-    return fig
+        # Option 2: Use a web image URL
+        url_image = st.text_input("Or enter an image URL:", key="home_web_image_url")
+        if st.button("Fetch & Set Image from URL", key="fetch_url_image"):
+            if not url_image.strip():
+                st.error("Please enter a valid URL.")
+            else:
+                try:
+                    response = requests.get(url_image, timeout=10)
+                    content_type = response.headers.get("Content-Type", "")
+                    if response.status_code == 200 and content_type.startswith("image"):
+                        with open(HOME_BANNER_PATH, "wb") as f:
+                            f.write(response.content)
+                        st.image(HOME_BANNER_PATH, use_container_width=True)
+                    else:
+                        st.error("Could not fetch a valid image from the provided URL.")
+                except Exception as e:
+                    st.error(f"Error fetching image: {e}")
 
-def plot_bmd(beam, num=200):
-    """
-    Plot Bending Moment Diagram M(x) over [0, length].
-    """
-    xs = np.linspace(0, beam.length, num)
-    Ms = [beam.moment_at(x) for x in xs]
+        st.write("---")
 
-    fig, ax = plt.subplots()
-    ax.plot(xs, Ms, linewidth=2)
-    ax.fill_between(xs, Ms, 0, where=(np.array(Ms) >= 0), alpha=0.3)
-    ax.fill_between(xs, Ms, 0, where=(np.array(Ms) <= 0), alpha=0.3)
-    ax.axhline(0, color="black", linewidth=0.8)
-    ax.set_ylabel("Moment M(x) [kN·m]")
-    ax.set_xlabel("x [m]")
-    ax.set_title("Bending Moment Diagram")
-    fig.tight_layout()
-    return fig
+        # Option 3: Delete/Reset the current banner
+        if st.button("Delete/Reset Banner", key="delete_banner"):
+            if os.path.exists(HOME_BANNER_PATH):
+                os.remove(HOME_BANNER_PATH)
+                st.info("Banner deleted.")
+            else:
+                st.info("No banner image found to delete.")
+
+    st.write("### Quick Start Guide")
+    st.info("Use the left sidebar to navigate different sections of the tool.")
