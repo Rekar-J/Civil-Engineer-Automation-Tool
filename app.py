@@ -4,7 +4,7 @@ import pandas as pd
 import uuid
 import base64
 
-# Must be the first Streamlit command
+# Must be first
 st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide")
 
 from streamlit_cookies_manager import EncryptedCookieManager
@@ -22,7 +22,7 @@ from pushpull import (
     DATABASE_FILE, USERS_FILE
 )
 
-# --- Cookie & user management (unchanged) ---
+# --- Cookie & user management ---
 COOKIES_PASSWORD = "MY_SUPER_SECRET_PASSWORD_1234"
 cookies = EncryptedCookieManager(prefix="civil_eng_app", password=COOKIES_PASSWORD)
 if not cookies.ready():
@@ -34,8 +34,7 @@ def set_cookie(key, value):
     cookies[key] = value
     cookies.save()
 def clear_cookie(key):
-    if key in cookies:
-        del cookies[key]
+    if key in cookies: del cookies[key]
     cookies.save()
 
 USERS_DF = pd.DataFrame(columns=["username","password","token"])
@@ -51,8 +50,7 @@ def pull_users_init():
     global USERS_DF, USERS_SHA
     df, sha = pull_users()
     df = ensure_columns(df)
-    USERS_DF = df.copy()
-    USERS_SHA = sha
+    USERS_DF, USERS_SHA = df.copy(), sha
 
 def load_users_local():
     return USERS_DF.copy()
@@ -61,6 +59,7 @@ def save_users_local(df):
     global USERS_DF, USERS_SHA
     USERS_DF = df.copy()
     code = push_users(USERS_DF, USERS_SHA)
+    # refresh on success
     if code in (200,201):
         new_df, new_sha = pull_users()
         USERS_DF, USERS_SHA = ensure_columns(new_df), new_sha
@@ -88,7 +87,7 @@ def find_user_by_token(token):
 
 def clear_token(token):
     df = load_users_local()
-    df.loc[df["token"]==token, "token"] = ""
+    df.loc[df["token"]==token,"token"] = ""
     save_users_local(df)
 
 def sign_up_screen():
@@ -100,9 +99,11 @@ def sign_up_screen():
             create_user(user, pw)
             tok = str(uuid.uuid4())
             set_token_for_user(user, tok)
-            st.session_state["logged_in"] = True
-            st.session_state["username"] = user
-            st.session_state["session_token"] = tok
+            st.session_state.update({
+                "logged_in": True,
+                "username": user,
+                "session_token": tok
+            })
             set_cookie("session_token", tok)
         st.stop()
 
@@ -116,9 +117,11 @@ def login_screen():
             if check_credentials(user, pw):
                 tok = str(uuid.uuid4())
                 set_token_for_user(user, tok)
-                st.session_state["logged_in"] = True
-                st.session_state["username"] = user
-                st.session_state["session_token"] = tok
+                st.session_state.update({
+                    "logged_in": True,
+                    "username": user,
+                    "session_token": tok
+                })
                 set_cookie("session_token", tok)
             st.stop()
     with c2:
@@ -130,9 +133,14 @@ def logout():
     if st.session_state.get("session_token"):
         clear_token(st.session_state["session_token"])
     clear_cookie("session_token")
-    st.session_state.update({"logged_in": False, "username": None, "session_token": None})
+    st.session_state.update({
+        "logged_in": False,
+        "username": None,
+        "session_token": None
+    })
 
 def main_app():
+    # pull banner & data
     db_df, db_sha = pull_database()
     st.session_state["db_df"], st.session_state["db_sha"] = db_df, db_sha
 
@@ -182,5 +190,5 @@ def run():
     else:
         main_app()
 
-if __name__=="__main__":
+if __name__ == "__main__":
     run()
