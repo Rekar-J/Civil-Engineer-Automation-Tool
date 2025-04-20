@@ -1,56 +1,103 @@
 import streamlit as st
-st.set_page_config(page_title="Civil Beam Analyzer", layout="wide")
-
-from core import Beam, Support, Load
-from plots import plot_beam_diagram, plot_sfd, plot_bmd
-import matplotlib.pyplot as plt
+import os
+import requests
 
 def run():
-    st.title("Civil Beam Analyzer 📐")
+    st.title("🏠 Welcome to the Civil Engineer Automation Tool (Home)")
 
-    st.markdown("Use this tool to define a beam, apply loads and supports, and visualize the Shear Force Diagram (SFD) and Bending Moment Diagram (BMD).")
+    # Ensure username is displayed
+    if "username" in st.session_state and st.session_state["username"]:
+        st.write(f"### 🔵 Welcome, **{st.session_state['username']}!**")
+    else:
+        st.warning("⚠️ Username not found in session state. Try logging in again.")
 
-    st.subheader("1. Define Beam Properties")
-    length = st.number_input("Beam Length (m)", min_value=1.0, step=0.5)
+    # Two-column advanced UI layout
+    col1, col2 = st.columns([2, 1])
 
-    st.subheader("2. Add Supports")
-    support_positions = st.text_input("Support Positions (comma-separated in meters)", "0, 5")
+    with col1:
+        st.markdown("""
+        ### About This Application
+        The **Civil Engineer Automation Tool** is a comprehensive platform 
+        designed for civil engineers to automate tasks such as structural 
+        analysis, project management, compliance checks, and collaboration.
 
-    st.subheader("3. Add Loads")
-    point_loads_str = st.text_area("Point Loads (Format: pos(kN), e.g. 2@10, 4@5)", "2@10, 4@5")
-    udl_loads_str = st.text_area("UDLs (Format: start,end,intensity, e.g. 2,4,3)", "2,4,3")
+        **Key Features**:
+        - 🏗️ **Structural & Geotechnical Analysis**
+        - 🌊 **Hydraulic & Hydrological Simulations**
+        - 📅 **Project Management & Scheduling**
+        - ✅ **Compliance Verification & Reporting**
+        - 🔗 **Collaboration & Documentation Tools**
+        
+        Use the panel on the right to customize the home banner image below 
+        without leaving or refreshing this page. 
+        """)
 
-    if st.button("Analyze"):
-        beam = Beam(length)
+    # Path to the current home banner image
+    HOME_BANNER_PATH = "uploads/home header image.jpg"
 
-        try:
-            supports = [Support(float(p)) for p in support_positions.split(",")]
-            for s in supports:
-                beam.add_support(s)
+    with col2:
+        st.subheader("Current banner Image")
+        # Check if the file exists or if a new image was just uploaded
+        if os.path.exists(HOME_BANNER_PATH):
+            st.image(HOME_BANNER_PATH, use_container_width=True)
+        else:
+            st.info("No banner image found. Please upload or set one below.")
 
-            if point_loads_str.strip():
-                point_loads = point_loads_str.split(",")
-                for p in point_loads:
-                    pos, mag = map(float, p.split("@"))
-                    beam.add_load(Load("point", magnitude=mag, position=pos))
+    st.write("---")
 
-            if udl_loads_str.strip():
-                udls = udl_loads_str.split(",")
-                for i in range(0, len(udls), 3):
-                    start = float(udls[i])
-                    end = float(udls[i+1])
-                    intensity = float(udls[i+2])
-                    beam.add_load(Load("udl", magnitude=intensity, start=start, end=end))
+    # Expander to manage the home banner image
+    with st.expander("Manage Home Banner Image"):
+        st.markdown("""
+        You can **upload a local image** from your computer or **pull an image from the web** 
+        using a URL. You can also **delete/reset** the current banner image.
+        
+        Once updated, the new banner will appear **immediately** below, 
+        and your session remains active without requiring a refresh.
+        """)
 
-            beam.analyze()
+        # --- Option 1: Upload from local desktop ---
+        uploaded_file = st.file_uploader(
+            "Upload a local image (PNG/JPG)", 
+            type=["png", "jpg", "jpeg"], 
+            key="home_local_image"
+        )
+        if uploaded_file is not None:
+            # Save the uploaded image
+            file_path = HOME_BANNER_PATH
+            with open(file_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            st.image(file_path, use_container_width=True)
 
-            st.success("Analysis complete!")
+        st.write("---")
 
-            st.subheader("4. Beam Visualization")
+        # --- Option 2: Use a web image URL ---
+        url_image = st.text_input("Or enter an image URL:", key="home_web_image_url")
+        if st.button("Fetch & Set Image from URL", key="fetch_url_image"):
+            if url_image.strip() == "":
+                st.error("Please enter a valid URL.")
+            else:
+                try:
+                    response = requests.get(url_image, timeout=10)
+                    content_type = response.headers.get("Content-Type", "")
+                    if response.status_code == 200 and content_type.startswith("image"):
+                        with open(HOME_BANNER_PATH, "wb") as f:
+                            f.write(response.content)
+                        st.image(HOME_BANNER_PATH, use_container_width=True)
+                    else:
+                        st.error("Could not fetch a valid image from the provided URL.")
+                except Exception as e:
+                    st.error(f"Error fetching image: {e}")
 
-            st.pyplot(plot_beam_diagram(beam))
-            st.pyplot(plot_sfd(beam))
-            st.pyplot(plot_bmd(beam))
+        st.write("---")
 
-        except Exception as e:
-            st.error(f"Error in input or analysis: {e}")
+        # --- Option 3: Delete/Reset the current banner ---
+        if st.button("Delete/Reset Banner", key="delete_banner"):
+            if os.path.exists(HOME_BANNER_PATH):
+                os.remove(HOME_BANNER_PATH)
+            else:
+                st.info("No home banner image found to delete.")
+
+        st.write("---")
+
+    st.write("### Quick Start Guide")
+    st.info("Use the left sidebar to navigate different sections of the tool.")
