@@ -6,8 +6,8 @@ class Beam:
     def __init__(self, length, supports=None, loads=None):
         self.length = length
         self.supports = supports if supports is not None else []
-        self.loads = loads if loads is not None else []            # point loads
-        self.distributed_loads = []                                 # UDLs
+        self.loads = loads if loads is not None else []
+        self.distributed_loads = []
         self.reactions = []
 
     def add_support(self, pos, sup_type):
@@ -24,19 +24,19 @@ class Beam:
 
     def analyze(self):
         """Convert UDLs to equivalent point loads and compute support reactions."""
-        # 1) Convert every UDL into a point load
+        # Convert UDLs
         for udl in self.distributed_loads:
             total = udl["int"] * (udl["end"] - udl["start"])
             x_eq = (udl["start"] + udl["end"]) / 2
             self.loads.append({"pos": x_eq, "mag": total})
 
-        # 2) Must have exactly two supports for this simple solver
         if len(self.supports) != 2:
-            raise ValueError("Exactly two supports are required for analysis.")
+            raise ValueError("Exactly two supports are required.")
+
         A, B = self.supports
         a, b = A["pos"], B["pos"]
 
-        # Sum of moments about A = 0 => Rb*(b–a) = Σ[F_i*(x_i–a)]
+        # ΣM about A = 0 → Rb*(b−a) = Σ[F_i*(x_i − a)]
         moment = sum(l["mag"] * (l["pos"] - a) for l in self.loads)
         Rb = moment / (b - a)
         Ra = sum(l["mag"] for l in self.loads) - Rb
@@ -46,11 +46,11 @@ class Beam:
     def shear_at(self, x):
         """Shear force at position x."""
         V = 0.0
-        # reactions to the left of x
+        # add reactions to left
         for idx, sup in enumerate(self.supports):
             if x >= sup["pos"]:
                 V += self.reactions[idx]
-        # subtract point loads to the left
+        # subtract loads to left
         for l in self.loads:
             if l["pos"] <= x:
                 V -= l["mag"]
@@ -59,11 +59,11 @@ class Beam:
     def moment_at(self, x):
         """Bending moment at position x."""
         M = 0.0
-        # reaction moments
+        # reactions
         for idx, sup in enumerate(self.supports):
             if x >= sup["pos"]:
                 M += self.reactions[idx] * (x - sup["pos"])
-        # subtract loads
+        # loads
         for l in self.loads:
             if l["pos"] <= x:
                 M -= l["mag"] * (x - l["pos"])
