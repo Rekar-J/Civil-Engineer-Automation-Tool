@@ -1,103 +1,94 @@
 import streamlit as st
-import os
-import requests
+import io
+import pandas as pd
+
+from core import Beam  # or however you import your main class
+from plots import (
+    plot_shear_force,
+    plot_bending_moment,
+)
 
 def run():
-    st.title("🏠 Welcome to the Civil Engineer Automation Tool (Home)")
+    st.title("🛠 Beam Analysis")
 
-    # Ensure username is displayed
-    if "username" in st.session_state and st.session_state["username"]:
-        st.write(f"### 🔵 Welcome, **{st.session_state['username']}!**")
-    else:
-        st.warning("⚠️ Username not found in session state. Try logging in again.")
+    # --- Beam definition inputs ---
+    length = st.number_input("Beam Length (m)", min_value=0.1, value=5.0, step=0.1)
+    beam = Beam(length)
 
-    # Two-column advanced UI layout
-    col1, col2 = st.columns([2, 1])
+    st.write("#### Point Loads")
+    num_point_loads = st.number_input("How many point loads?", min_value=0, step=1, value=0, key="n_pl")
+    for i in range(num_point_loads):
+        col1, col2 = st.columns(2)
+        with col1:
+            mag = st.number_input(f"Load #{i+1} (kN)", key=f"pl_mag_{i}")
+        with col2:
+            pos = st.number_input(f"Position #{i+1} (m)", key=f"pl_pos_{i}", max_value=length)
+        if mag != 0:
+            beam.add_point_load(mag, pos)
 
-    with col1:
-        st.markdown("""
-        ### About This Application
-        The **Civil Engineer Automation Tool** is a comprehensive platform 
-        designed for civil engineers to automate tasks such as structural 
-        analysis, project management, compliance checks, and collaboration.
+    st.write("#### Uniform Distributed Loads")
+    num_udl = st.number_input("How many UDLs?", min_value=0, step=1, value=0, key="n_udl")
+    for j in range(num_udl):
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            start = st.number_input(f"UDL #{j+1} start (m)", key=f"udl_start_{j}", max_value=length)
+        with c2:
+            end = st.number_input(f"UDL #{j+1} end (m)", key=f"udl_end_{j}", min_value=start, max_value=length)
+        with c3:
+            intensity = st.number_input(f"UDL #{j+1} intensity (kN/m)", key=f"udl_int_{j}")
+        if intensity != 0 and end > start:
+            beam.add_distributed_load(start, end, intensity)
 
-        **Key Features**:
-        - 🏗️ **Structural & Geotechnical Analysis**
-        - 🌊 **Hydraulic & Hydrological Simulations**
-        - 📅 **Project Management & Scheduling**
-        - ✅ **Compliance Verification & Reporting**
-        - 🔗 **Collaboration & Documentation Tools**
-        
-        Use the panel on the right to customize the home banner image below 
-        without leaving or refreshing this page. 
-        """)
+    if st.button("🔍 Analyze Beam"):
+        # Run the analysis
+        beam.analyze()
+        reactions = beam.get_reactions()  # {'RA':…, 'RB':…}
+        max_moment = beam.get_max_moment()  # e.g. (value, position)
 
-    # Path to the current home banner image
-    HOME_BANNER_PATH = "uploads/home header image.jpg"
-
-    with col2:
-        st.subheader("Current banner Image")
-        # Check if the file exists or if a new image was just uploaded
-        if os.path.exists(HOME_BANNER_PATH):
-            st.image(HOME_BANNER_PATH, use_container_width=True)
-        else:
-            st.info("No banner image found. Please upload or set one below.")
-
-    st.write("---")
-
-    # Expander to manage the home banner image
-    with st.expander("Manage Home Banner Image"):
-        st.markdown("""
-        You can **upload a local image** from your computer or **pull an image from the web** 
-        using a URL. You can also **delete/reset** the current banner image.
-        
-        Once updated, the new banner will appear **immediately** below, 
-        and your session remains active without requiring a refresh.
-        """)
-
-        # --- Option 1: Upload from local desktop ---
-        uploaded_file = st.file_uploader(
-            "Upload a local image (PNG/JPG)", 
-            type=["png", "jpg", "jpeg"], 
-            key="home_local_image"
+        # Display numeric results
+        st.subheader("📊 Support Reactions")
+        reactions_df = pd.DataFrame(
+            list(reactions.items()), 
+            columns=["Support", "Reaction (kN)"]
         )
-        if uploaded_file is not None:
-            # Save the uploaded image
-            file_path = HOME_BANNER_PATH
-            with open(file_path, "wb") as f:
-                f.write(uploaded_file.getbuffer())
-            st.image(file_path, use_container_width=True)
+        st.dataframe(reactions_df)
 
-        st.write("---")
+        st.subheader("⚙️ Max Bending Moment")
+        st.write(f"- **Value:** {max_moment[0]:.2f} kN·m")
+        st.write(f"- **Location:** {max_moment[1]:.2f} m from left support")
 
-        # --- Option 2: Use a web image URL ---
-        url_image = st.text_input("Or enter an image URL:", key="home_web_image_url")
-        if st.button("Fetch & Set Image from URL", key="fetch_url_image"):
-            if url_image.strip() == "":
-                st.error("Please enter a valid URL.")
-            else:
-                try:
-                    response = requests.get(url_image, timeout=10)
-                    content_type = response.headers.get("Content-Type", "")
-                    if response.status_code == 200 and content_type.startswith("image"):
-                        with open(HOME_BANNER_PATH, "wb") as f:
-                            f.write(response.content)
-                        st.image(HOME_BANNER_PATH, use_container_width=True)
-                    else:
-                        st.error("Could not fetch a valid image from the provided URL.")
-                except Exception as e:
-                    st.error(f"Error fetching image: {e}")
+        # --- Export Reactions CSV ---
+        csv_buf = io.StringIO()
+        reactions_df.to_csv(csv_buf, index=False)
+        st.download_button(
+            "📥 Download Reactions CSV",
+            data=csv_buf.getvalue().encode("utf-8"),
+            file_name="beam_reactions.csv",
+            mime="text/csv",
+        )
 
-        st.write("---")
+        # Plot & export Shear Force
+        st.subheader("📈 Shear Force Diagram")
+        fig_shear = plot_shear_force(beam)
+        st.pyplot(fig_shear)
+        shear_buf = io.BytesIO()
+        fig_shear.savefig(shear_buf, format="png", bbox_inches="tight")
+        st.download_button(
+            "📥 Download Shear Diagram",
+            data=shear_buf.getvalue(),
+            file_name="shear_diagram.png",
+            mime="image/png",
+        )
 
-        # --- Option 3: Delete/Reset the current banner ---
-        if st.button("Delete/Reset Banner", key="delete_banner"):
-            if os.path.exists(HOME_BANNER_PATH):
-                os.remove(HOME_BANNER_PATH)
-            else:
-                st.info("No home banner image found to delete.")
-
-        st.write("---")
-
-    st.write("### Quick Start Guide")
-    st.info("Use the left sidebar to navigate different sections of the tool.")
+        # Plot & export Bending Moment
+        st.subheader("📉 Bending Moment Diagram")
+        fig_moment = plot_bending_moment(beam)
+        st.pyplot(fig_moment)
+        moment_buf = io.BytesIO()
+        fig_moment.savefig(moment_buf, format="png", bbox_inches="tight")
+        st.download_button(
+            "📥 Download Moment Diagram",
+            data=moment_buf.getvalue(),
+            file_name="moment_diagram.png",
+            mime="image/png",
+        )
