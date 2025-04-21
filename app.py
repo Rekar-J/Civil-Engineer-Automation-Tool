@@ -162,23 +162,30 @@ def save_home_banner_to_github():
         return
     with open(HOME_BANNER_PATH, "rb") as f:
         b64 = base64.b64encode(f.read()).decode()
-    df, sha = pull_database()
-    idx = df.index[df["Tab"] == "HomeBanner"].tolist()
+    df_data, sha = pull_database()
+    idx = df_data.index[df_data["Tab"] == "HomeBanner"].tolist()
     if not idx:
         new = pd.DataFrame({"Tab":["HomeBanner"], "SubTab":[""], "Data":[b64]})
-        df = pd.concat([df, new], ignore_index=True)
+        df_data = pd.concat([df_data, new], ignore_index=True)
     else:
-        df.loc[idx[0], "Data"] = b64
-    push_database(df, sha)
+        df_data.loc[idx[0], "Data"] = b64
+    push_database(df_data, sha)
 
 def save_structural_analysis_to_github():
     if "structural_data" not in st.session_state:
         return
     df_data, sha = pull_database()
     csv = st.session_state.structural_data.to_csv(index=False)
-    idx = df_data.index[(df_data["Tab"]=="DesignAnalysis") & (df_data["SubTab"]=="Structural")].tolist()
+    idx = df_data.index[
+        (df_data["Tab"] == "DesignAnalysis") &
+        (df_data["SubTab"] == "Structural")
+    ].tolist()
     if not idx:
-        new = pd.DataFrame({"Tab":["DesignAnalysis"], "SubTab":["Structural"], "Data":[csv]})
+        new = pd.DataFrame({
+            "Tab":["DesignAnalysis"],
+            "SubTab":["Structural"],
+            "Data":[csv]
+        })
         df_data = pd.concat([df_data, new], ignore_index=True)
     else:
         df_data.loc[idx[0], "Data"] = csv
@@ -188,7 +195,10 @@ def save_project_management_to_github():
     df_data, sha = pull_database()
     if "scheduling_data" in st.session_state:
         csv = st.session_state.scheduling_data.to_csv(index=False)
-        idx = df_data.index[(df_data["Tab"]=="ProjectManagement") & (df_data["SubTab"]=="Scheduling")].tolist()
+        idx = df_data.index[
+            (df_data["Tab"] == "ProjectManagement") &
+            (df_data["SubTab"] == "Scheduling")
+        ].tolist()
         if not idx:
             new = pd.DataFrame({"Tab":["ProjectManagement"], "SubTab":["Scheduling"], "Data":[csv]})
             df_data = pd.concat([df_data, new], ignore_index=True)
@@ -196,7 +206,10 @@ def save_project_management_to_github():
             df_data.loc[idx[0], "Data"] = csv
     if "resource_data" in st.session_state:
         csv = st.session_state.resource_data.to_csv(index=False)
-        idx = df_data.index[(df_data["Tab"]=="ProjectManagement") & (df_data["SubTab"]=="Resource")].tolist()
+        idx = df_data.index[
+            (df_data["Tab"] == "ProjectManagement") &
+            (df_data["SubTab"] == "Resource")
+        ].tolist()
         if not idx:
             new = pd.DataFrame({"Tab":["ProjectManagement"], "SubTab":["Resource"], "Data":[csv]})
             df_data = pd.concat([df_data, new], ignore_index=True)
@@ -204,7 +217,10 @@ def save_project_management_to_github():
             df_data.loc[idx[0], "Data"] = csv
     if "progress_data" in st.session_state:
         csv = st.session_state.progress_data.to_csv(index=False)
-        idx = df_data.index[(df_data["Tab"]=="ProjectManagement") & (df_data["SubTab"]=="Progress")].tolist()
+        idx = df_data.index[
+            (df_data["Tab"] == "ProjectManagement") &
+            (df_data["SubTab"] == "Progress")
+        ].tolist()
         if not idx:
             new = pd.DataFrame({"Tab":["ProjectManagement"], "SubTab":["Progress"], "Data":[csv]})
             df_data = pd.concat([df_data, new], ignore_index=True)
@@ -216,7 +232,10 @@ def save_tools_utilities_to_github():
     df_data, sha = pull_database()
     if "cost_estimation_data" in st.session_state:
         csv = st.session_state.cost_estimation_data.to_csv(index=False)
-        idx = df_data.index[(df_data["Tab"]=="ToolsUtilities") & (df_data["SubTab"]=="CostEstimation")].tolist()
+        idx = df_data.index[
+            (df_data["Tab"] == "ToolsUtilities") &
+            (df_data["SubTab"] == "CostEstimation")
+        ].tolist()
         if not idx:
             new = pd.DataFrame({"Tab":["ToolsUtilities"], "SubTab":["CostEstimation"], "Data":[csv]})
             df_data = pd.concat([df_data, new], ignore_index=True)
@@ -228,4 +247,98 @@ def save_collaboration_docs_to_github():
     df_data, sha = pull_database()
     if "document_data" in st.session_state:
         csv = st.session_state.document_data.to_csv(index=False)
-        idx = df_data.index[(df_data["Tab"]=="CollaborationDocs") & (df_data["SubTab"]=="Documents")].
+        idx = df_data.index[
+            (df_data["Tab"] == "CollaborationDocs") &
+            (df_data["SubTab"] == "Documents")
+        ].tolist()
+        if not idx:
+            new = pd.DataFrame({
+                "Tab":["CollaborationDocs"],
+                "SubTab":["Documents"],
+                "Data":[csv]
+            })
+            df_data = pd.concat([df_data, new], ignore_index=True)
+        else:
+            df_data.loc[idx[0], "Data"] = csv
+        push_database(df_data, sha)
+
+# --- Main Application Loop ---
+def main_app():
+    db_df, db_sha = pull_database()
+    st.session_state["db_df"], st.session_state["db_sha"] = db_df, db_sha
+    sync_home_banner_after_pull()
+
+    if st.button("Logout"):
+        logout()
+        st.stop()
+
+    selected_tab = render_sidebar()
+
+    if selected_tab == "Home":
+        run_home()
+        if st.button("Save Changes", key="save_home_banner"):
+            save_home_banner_to_github()
+            st.success("🏠 Home banner saved.")
+            st.stop()
+
+    elif selected_tab == "Design and Analysis":
+        design_analysis.run()
+        if st.button("Save Changes", key="save_struct_analysis"):
+            save_structural_analysis_to_github()
+            st.success("🛠️ Structural data saved.")
+            st.stop()
+
+    elif selected_tab == "Project Management":
+        project_management.run()
+        if st.button("Save Changes", key="save_project_mgmt"):
+            save_project_management_to_github()
+            st.success("📅 Project management data saved.")
+            st.stop()
+
+    elif selected_tab == "Compliance and Reporting":
+        compliance_reporting.run()
+
+    elif selected_tab == "Tools and Utilities":
+        tools_utilities.run()
+        if st.button("Save Changes", key="save_tools_utils"):
+            save_tools_utilities_to_github()
+            st.success("⚙️ Tools & utilities data saved.")
+            st.stop()
+
+    elif selected_tab == "Collaboration and Documentation":
+        collaboration_documentation.run()
+        if st.button("Save Changes", key="save_collab_docs"):
+            save_collaboration_docs_to_github()
+            st.success("📄 Collaboration docs saved.")
+            st.stop()
+
+def check_cookie_session():
+    tok = get_cookie("session_token")
+    if tok:
+        user = find_user_by_token(tok)
+        if user is not None:
+            st.session_state.update({
+                "logged_in": True,
+                "username": user["username"],
+                "session_token": tok
+            })
+        else:
+            clear_cookie("session_token")
+
+def run():
+    pull_users_init()
+    st.session_state.setdefault("logged_in", False)
+    st.session_state.setdefault("sign_up", False)
+    st.session_state.setdefault("session_token", None)
+
+    check_cookie_session()
+    if not st.session_state["logged_in"]:
+        if st.session_state["sign_up"]:
+            sign_up_screen()
+        else:
+            login_screen()
+    else:
+        main_app()
+
+if __name__ == "__main__":
+    run()
