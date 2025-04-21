@@ -52,6 +52,7 @@ def run_structural_analysis():
     st.write(f"- **Maximum Bending Moment:** {max_moment:.2f} kN·m")
     st.success("Ensure compliance with **ACI design load requirements** and proper safety factors.")
 
+
 # --- Geotechnical Analysis ---
 def run_geotechnical_analysis():
     st.header("Geotechnical Analysis")
@@ -80,6 +81,7 @@ def run_geotechnical_analysis():
     st.write("### Soil Data")
     st.dataframe(st.session_state.geotechnical_data)
 
+
 # --- Hydraulic & Hydrological Modeling ---
 def run_hydraulic_analysis():
     st.header("Hydraulic and Hydrological Modeling")
@@ -104,6 +106,7 @@ def run_hydraulic_analysis():
 
     st.write("### Flow Simulation Data")
     st.dataframe(st.session_state.hydraulic_data)
+
 
 # --- Engineering Tests ---
 def run_tests():
@@ -134,12 +137,20 @@ def run_tests():
                 else:
                     st.error("⚠️ Enter a valid EC value.")
 
+
 # --- Beam Analysis Sub‑Tab ---
 def run_beam_analysis():
     st.header("Beam Analysis")
     st.info("Analyze simply supported beams with point loads and UDLs.")
+    
+    # Clarify measurement origin
+    st.markdown(
+        "<span style='color:gray;'>**Note:** All distances (supports, point loads, UDL bounds) "
+        "are measured from the <strong>left end</strong> of the beam (x = 0 at left).</span>",
+        unsafe_allow_html=True
+    )
 
-    # Show dimensions?
+    # Show dimensions toggle
     show_dims = st.checkbox("Show dimensions on schematic", value=True, key="beam_show_dims")
 
     # Beam span
@@ -270,6 +281,7 @@ def run_beam_analysis():
             "Shear and moment diagrams above illustrate internal force distributions "
             "and identify critical sections."
         )
+
 
 # --- Combine into tabs ---
 def run():
