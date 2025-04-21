@@ -1,3 +1,4 @@
+# app.py
 import streamlit as st
 import pandas as pd
 import uuid
@@ -23,7 +24,7 @@ if not cookies.ready():
     st.stop()
 
 def get_cookie(k): return cookies.get(k)
-def set_cookie(k,v): cookies.__setitem__(k,v); cookies.save()
+def set_cookie(k,v): cookies.__setitem__(k, v); cookies.save()
 def clear_cookie(k):
     if k in cookies: del cookies[k]
     cookies.save()
@@ -46,11 +47,11 @@ def load_users_local(): return USERS_DF.copy()
 def save_users_local(df):
     global USERS_DF, USERS_SHA
     code = push_users(df, USERS_SHA)
-    if code in (200,201):
+    if code in (200, 201):
         new_df, new_sha = pull_users()
         USERS_DF, USERS_SHA = ensure_columns(new_df), new_sha
 
-def user_exists(u): return not load_users_local()[load_users_local()["username"]==u].empty
+def user_exists(u): return not load_users_local()[load_users_local()["username"] == u].empty
 def check_credentials(u,p):
     df = load_users_local()
     return not df[(df["username"]==u)&(df["password"]==p)].empty
@@ -212,8 +213,13 @@ def check_cookie_session():
     tok = get_cookie("session_token")
     if tok:
         user = find_user_by_token(tok)
-        if user:
-            st.session_state.update({"logged_in":True,"username":user["username"],"session_token":tok})
+        # ← CHANGED HERE: explicit None check instead of `if user:`
+        if user is not None:
+            st.session_state.update({
+                "logged_in": True,
+                "username": user["username"],
+                "session_token": tok
+            })
         else:
             clear_cookie("session_token")
 
