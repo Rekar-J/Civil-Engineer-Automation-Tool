@@ -1,10 +1,11 @@
+# tabs/design_analysis.py
 import streamlit as st
 import pandas as pd
 import numpy as np
 from core import Beam
 from plots import plot_beam_diagram, plot_sfd, plot_bmd
 
-# --- Structural Analysis ---
+# --- Enhanced Structural Analysis Section ---
 def run_structural_analysis():
     st.header("Structural Analysis")
     st.subheader("📌 About Structural Analysis")
@@ -46,14 +47,14 @@ def run_structural_analysis():
     max_moment = st.session_state.structural_data["Moment (kN-m)"].max() if not st.session_state.structural_data.empty else 0
 
     st.write("### Analysis Results")
-    st.write(f"- **Total Load:** {total_load:.2f} kN")
-    st.write(f"- **Maximum Load:** {max_load:.2f} kN")
-    st.write(f"- **Total Bending Moment:** {total_moment:.2f} kN·m")
-    st.write(f"- **Maximum Bending Moment:** {max_moment:.2f} kN·m")
+    st.write(f"- **Total Load:** {total_load:.2f} kN")
+    st.write(f"- **Maximum Load:** {max_load:.2f} kN")
+    st.write(f"- **Total Bending Moment:** {total_moment:.2f} kN-m")
+    st.write(f"- **Maximum Bending Moment:** {max_moment:.2f} kN-m")
     st.success("Ensure compliance with **ACI design load requirements** and proper safety factors.")
 
 
-# --- Geotechnical Analysis ---
+# --- Geotechnical Analysis Section ---
 def run_geotechnical_analysis():
     st.header("Geotechnical Analysis")
     st.subheader("📌 About Geotechnical Analysis")
@@ -74,19 +75,18 @@ def run_geotechnical_analysis():
             "Cohesion": [cohesion]
         })
         st.session_state.geotechnical_data = pd.concat(
-            [st.session_state.geotechnical_data, new_row],
-            ignore_index=True
+            [st.session_state.geotechnical_data, new_row], ignore_index=True
         )
 
     st.write("### Soil Data")
     st.dataframe(st.session_state.geotechnical_data)
 
 
-# --- Hydraulic & Hydrological Modeling ---
+# --- Hydraulic and Hydrological Modeling Section ---
 def run_hydraulic_analysis():
-    st.header("Hydraulic and Hydrological Modeling")
+    st.header("Hydraulic & Hydrological Modeling")
     st.subheader("📌 About Hydrological Modeling")
-    st.info("Simulates **water flow** to design stormwater, drainage, and sewage networks.")
+    st.info("Simulates **water flow and drainage systems** for stormwater and sewage design.")
 
     simulation_time = st.number_input("Enter Simulation Time (s)", min_value=1)
     flow_rate = st.number_input("Enter Flow Rate (L/s)", min_value=1)
@@ -100,15 +100,14 @@ def run_hydraulic_analysis():
             "Flow Rate (L/s)": [flow_rate]
         })
         st.session_state.hydraulic_data = pd.concat(
-            [st.session_state.hydraulic_data, new_row],
-            ignore_index=True
+            [st.session_state.hydraulic_data, new_row], ignore_index=True
         )
 
     st.write("### Flow Simulation Data")
     st.dataframe(st.session_state.hydraulic_data)
 
 
-# --- Engineering Tests ---
+# --- Engineering Tests Section ---
 def run_tests():
     st.header("Engineering Tests")
     st.subheader("📌 About Engineering Tests")
@@ -117,53 +116,49 @@ def run_tests():
     test_category = st.selectbox("Select Test Category", ["Water Tests", "Soil Tests"], key="test_category")
 
     if test_category == "Water Tests":
-        test_type = st.selectbox("Select Water Test", ["TDS (Total Dissolved Solids)", "pH Test"], key="water_test_type")
+        test_type = st.selectbox(
+            "Select Water Test",
+            ["TDS (Total Dissolved Solids)", "pH Test"],
+            key="water_test_type"
+        )
         if test_type == "TDS (Total Dissolved Solids)":
-            st.subheader("💧 TDS (Total Dissolved Solids) Test")
+            st.subheader("💧 TDS Test")
             ec = st.number_input("Enter Electrical Conductivity (µS/cm or mS/cm)", key="tds_ec")
-            conversion_factor = st.slider("Conversion Factor", 0.5, 0.7, 0.6, 0.01, key="tds_conversion")
+            conv = st.slider("Conversion Factor (0.5 - 0.7)", min_value=0.5, max_value=0.7, step=0.01, key="tds_conv")
             if st.button("Calculate TDS", key="calc_tds"):
-                if ec > 0:
-                    tds_value = ec * conversion_factor
-                    st.write(f"**TDS: {tds_value:.2f} mg/L (ppm)**")
-                    if tds_value < 300:
-                        st.success("💧 Excellent Water Quality")
-                    elif tds_value < 600:
-                        st.info("✅ Good Water Quality")
-                    elif tds_value < 900:
-                        st.warning("⚠️ Fair Water Quality")
+                tds = ec * conv if ec > 0 else 0
+                if tds > 0:
+                    st.write(f"**TDS: {tds:.2f} mg/L**")
+                    if tds < 300:
+                        st.success("Excellent Water Quality.")
+                    elif tds < 600:
+                        st.info("Good Water Quality.")
+                    elif tds < 900:
+                        st.warning("Fair Water Quality.")
                     else:
-                        st.error("🚫 Poor Water Quality")
+                        st.error("Poor Water Quality.")
                 else:
-                    st.error("⚠️ Enter a valid EC value.")
+                    st.error("Enter a positive EC value.")
 
 
-# --- Beam Analysis Sub‑Tab ---
+# --- Beam Analysis Sub‑Tab (new & enhanced) ---
 def run_beam_analysis():
     st.header("Beam Analysis")
-    st.info("Analyze simply supported beams with point loads and UDLs.")
-    
-    # Clarify measurement origin
-    st.markdown(
-        "<span style='color:gray;'>**Note:** All distances (supports, point loads, UDL bounds) "
-        "are measured from the <strong>left end</strong> of the beam (x = 0 at left).</span>",
-        unsafe_allow_html=True
-    )
+    st.info("Analyze simply supported beams—choose load directions, see dimensions & get a summary.")
 
-    # Show dimensions toggle
-    show_dims = st.checkbox("Show dimensions on schematic", value=True, key="beam_show_dims")
+    st.write("**Note:** All distances measured from the left end (x = 0).")
+    show_dims = st.checkbox("Show dimension lines", value=True)
 
-    # Beam span
+    # Beam geometry
     length = st.number_input("Beam Length (m)", min_value=0.1, value=5.0, key="beam_len")
 
-    # Supports (exactly two)
-    st.write("#### Supports (exactly two)")
+    # Supports (exactly 2)
+    st.write("#### Supports (2)")
     supports = []
     for i in range(2):
         pos = st.number_input(
             f"Support #{i+1} Position (m)",
-            min_value=0.0,
-            max_value=length,
+            min_value=0.0, max_value=length,
             value=(0.0 if i == 0 else length),
             key=f"beam_sup_pos_{i}"
         )
@@ -174,123 +169,107 @@ def run_beam_analysis():
         )
         supports.append({"pos": pos, "type": sup_type})
 
-    # Point loads
+    # Point loads (unlimited)
     st.write("#### Point Loads")
-    point_loads = []
     n_pl = st.number_input("How many point loads?", min_value=0, value=0, step=1, key="beam_pl_num")
+    point_loads = []
     for i in range(int(n_pl)):
         pos = st.number_input(
             f"Load #{i+1} Position (m)",
-            min_value=0.0,
-            max_value=length,
-            value=length / 2,
-            key=f"beam_pl_pos_{i}"
+            min_value=0.0, max_value=length,
+            value=length/2, key=f"beam_pl_pos_{i}"
         )
         mag = st.number_input(
             f"Load #{i+1} Magnitude (kN)",
-            value=10.0,
-            key=f"beam_pl_mag_{i}"
+            value=10.0, key=f"beam_pl_mag_{i}"
         )
         direction = st.selectbox(
             f"Load #{i+1} Direction",
             ["Downward", "Upward"],
             key=f"beam_pl_dir_{i}"
         )
-        point_loads.append({"pos": pos, "mag": mag, "dir": direction})
+        sign = 1 if direction == "Upward" else -1
+        point_loads.append({"pos": pos, "mag": mag * sign})
 
-    # UDLs
+    # Uniformly distributed loads
     st.write("#### Uniformly Distributed Loads")
-    udls = []
     n_udl = st.number_input("How many UDLs?", min_value=0, value=0, step=1, key="beam_udl_num")
+    udls = []
     for i in range(int(n_udl)):
         start = st.number_input(
             f"UDL #{i+1} Start (m)",
-            min_value=0.0,
-            max_value=length,
-            value=0.0,
-            key=f"beam_udl_start_{i}"
+            min_value=0.0, max_value=length,
+            value=0.0, key=f"beam_udl_start_{i}"
         )
         end = st.number_input(
             f"UDL #{i+1} End (m)",
-            min_value=0.0,
-            max_value=length,
-            value=length,
-            key=f"beam_udl_end_{i}"
+            min_value=0.0, max_value=length,
+            value=length, key=f"beam_udl_end_{i}"
         )
         intensity = st.number_input(
             f"UDL #{i+1} Intensity (kN/m)",
-            value=5.0,
-            key=f"beam_udl_int_{i}"
+            value=5.0, key=f"beam_udl_int_{i}"
         )
         direction = st.selectbox(
             f"UDL #{i+1} Direction",
             ["Downward", "Upward"],
             key=f"beam_udl_dir_{i}"
         )
-        udls.append({"start": start, "end": end, "int": intensity, "dir": direction})
+        sign = 1 if direction == "Upward" else -1
+        udls.append({"start": start, "end": end, "int": intensity * sign})
 
-    # Build & solve
+    # Build & analyze
     beam = Beam(length)
     for sup in supports:
         beam.add_support(sup["pos"], sup["type"])
     for pl in point_loads:
-        signed_mag = pl["mag"] if pl["dir"] == "Downward" else -pl["mag"]
-        beam.add_point_load(pl["pos"], signed_mag)
+        beam.add_point_load(pl["pos"], pl["mag"])
     for ud in udls:
-        signed_int = ud["int"] if ud["dir"] == "Downward" else -ud["int"]
-        beam.add_distributed_load(ud["start"], ud["end"], signed_int)
+        beam.add_distributed_load(ud["start"], ud["end"], ud["int"])
 
     if st.button("🔎 Analyze Beam", key="analyze_beam"):
         beam.analyze()
+        reactions = beam.reactions
 
-        # Reactions
-        st.write("#### Support Reactions")
-        for i, R in enumerate(beam.reactions):
-            st.write(f"> Support #{i+1} at {supports[i]['pos']:.2f} m → **{R:.2f} kN**")
-
-        # Max moment
+        # sample shear & moment for summary
         xs = np.linspace(0, beam.length, 200)
-        max_M = max(abs(beam.moment_at(x)) for x in xs)
-        st.write(f"#### Maximum Bending Moment: **{max_M:.2f} kN·m**")
+        Ms = [beam.moment_at(x) for x in xs]
+        idx_max = int(np.argmax(np.abs(Ms)))
+        x_max = xs[idx_max]
+        M_max = Ms[idx_max]
 
-        # Diagrams
-        pl_dirs = [pl["dir"].lower() for pl in point_loads]
-        udl_dirs = [ud["dir"].lower() for ud in udls]
+        # Display results & plots
+        st.write("#### Support Reactions")
+        for i, R in enumerate(reactions):
+            st.write(f"> Support #{i+1} at x = {supports[i]['pos']:.2f} m → **{R:.2f} kN**")
 
         st.write("#### Beam Schematic")
-        st.pyplot(plot_beam_diagram(
-            beam,
-            pl_dirs=pl_dirs,
-            udl_dirs=udl_dirs,
-            show_dimensions=show_dims
-        ))
+        st.pyplot(plot_beam_diagram(beam, show_dimensions=show_dims))
+
         st.write("#### Shear Force Diagram")
         st.pyplot(plot_sfd(beam))
+
         st.write("#### Bending Moment Diagram")
         st.pyplot(plot_bmd(beam))
 
-        # Commentary
-        st.write("#### Analysis Summary")
-        st.write(
-            f"A {length:.2f} m span with supports at "
-            f"{supports[0]['pos']:.2f} m and {supports[1]['pos']:.2f} m, "
-            f"point loads {[pl['mag'] for pl in point_loads]} kN "
-            f"acting {', '.join([pl['dir'].lower() for pl in point_loads])}, "
-            f"and UDLs {[ud['int'] for ud in udls]} kN/m "
-            f"acting {', '.join([ud['dir'].lower() for ud in udls])}. "
-            "Shear and moment diagrams above illustrate internal force distributions "
-            "and identify critical sections."
+        # concise textual summary
+        st.markdown(
+            f"**Analysis Summary:** A simply supported beam of length **{length:.2f} m** "
+            f"under the specified loads yields reactions of **{reactions[0]:.2f} kN** "
+            f"and **{reactions[1]:.2f} kN** at its supports. "
+            f"The maximum bending moment of **{abs(M_max):.2f} kN·m** "
+            f"occurs at **x = {x_max:.2f} m** along the span."
         )
 
 
-# --- Combine into tabs ---
+# --- Combined Tabs for Design & Analysis ---
 def run():
     st.title("🛠️ Design and Analysis")
     tabs = st.tabs([
         "Structural Analysis",
         "Beam Analysis",
         "Geotechnical Analysis",
-        "Hydraulic & Hydrological",
+        "Hydraulic & Hydrological Modeling",
         "Tests"
     ])
     with tabs[0]:
