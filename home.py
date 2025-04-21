@@ -1,21 +1,23 @@
 # home.py
+
 import streamlit as st
 import os
 import requests
 
+# Path must match what app.py expects
 HOME_BANNER_PATH = "home_banner.jpg"
 
 def run():
-    st.title("🏠 Welcome to the Civil Engineer Automation Tool")
+    st.title("🏠 Welcome to the Civil Engineer Automation Tool (Home)")
 
-    # Greeting
+    # Greet the user
     if st.session_state.get("username"):
         st.write(f"### 🔵 Welcome, **{st.session_state['username']}!**")
     else:
         st.warning("⚠️ Username not found—please log in again.")
 
-    # Two‑column intro
-    col1, col2 = st.columns([2,1])
+    # Two‑column layout: description + current banner
+    col1, col2 = st.columns([2, 1])
     with col1:
         st.markdown("""
         ### About This Application
@@ -25,60 +27,57 @@ def run():
         - 📅 Project Management & Scheduling  
         - ✅ Compliance Verification & Reporting  
         - 🔗 Collaboration & Documentation  
-        Use the sidebar to explore each feature.
+
+        Use the sidebar to explore each section.
         """)
     with col2:
         st.subheader("Current Banner")
         if os.path.exists(HOME_BANNER_PATH):
             st.image(HOME_BANNER_PATH, use_container_width=True)
         else:
-            st.info("No home banner image found.")
+            st.info("No banner image set. Upload one below.")
 
-    st.markdown("---")
+    st.write("---")
 
-    # Banner manager
-    with st.expander("Manage Home Banner Image"):
-        st.write("Upload, fetch from URL, or delete the banner.")
+    # Banner management UI
+    with st.expander("Manage Home Banner"):
+        st.markdown("""
+        - Upload from your computer  
+        - Fetch from an external URL  
+        - Delete current banner  
+        """)
 
-        # 1) Upload
-        uploaded = st.file_uploader("Upload image (PNG/JPG)", type=["png","jpg","jpeg"])
-        if uploaded:
-            os.makedirs(os.path.dirname(HOME_BANNER_PATH) or ".", exist_ok=True)
+        uploaded_file = st.file_uploader("Upload a local image", type=["png","jpg","jpeg"])
+        if uploaded_file:
             with open(HOME_BANNER_PATH, "wb") as f:
-                f.write(uploaded.getbuffer())
-            st.success("Image uploaded!")
+                f.write(uploaded_file.getbuffer())
+            st.success("✅ Uploaded local image!")
             st.image(HOME_BANNER_PATH, use_container_width=True)
 
-        st.markdown("---")
-
-        # 2) Fetch from URL
-        url = st.text_input("Or enter an image URL:", key="banner_url")
-        if st.button("Fetch & Set from URL"):
-            if not url:
-                st.error("Please enter a URL.")
-            else:
+        url = st.text_input("Or enter an image URL", key="home_url")
+        if st.button("Fetch & Upload from URL"):
+            if url:
                 try:
-                    resp = requests.get(url, timeout=10)
-                    ctype = resp.headers.get("Content-Type","")
-                    if resp.status_code == 200 and ctype.startswith("image"):
+                    r = requests.get(url, timeout=10)
+                    ct = r.headers.get("Content-Type", "")
+                    if r.status_code == 200 and ct.startswith("image"):
                         with open(HOME_BANNER_PATH, "wb") as f:
-                            f.write(resp.content)
-                        st.success("Fetched & saved!")
+                            f.write(r.content)
+                        st.success("✅ Fetched image from URL!")
                         st.image(HOME_BANNER_PATH, use_container_width=True)
                     else:
-                        st.error("That URL did not return an image.")
+                        st.error("URL did not return a valid image.")
                 except Exception as e:
-                    st.error(f"Error: {e}")
+                    st.error(f"Error fetching URL: {e}")
+            else:
+                st.error("Enter a valid URL.")
 
-        st.markdown("---")
-
-        # 3) Delete
-        if st.button("Delete/Reset Banner"):
+        if st.button("Delete Banner"):
             if os.path.exists(HOME_BANNER_PATH):
                 os.remove(HOME_BANNER_PATH)
-                st.success("Banner deleted.")
+                st.success("✅ Banner deleted.")
             else:
                 st.info("No banner to delete.")
 
-    st.markdown("---")
-    st.info("Use the left sidebar to navigate the rest of the app.")
+    st.write("---")
+    st.info("Use the sidebar to navigate different sections of the tool.")
