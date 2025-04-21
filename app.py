@@ -1,4 +1,5 @@
 # app.py
+
 import streamlit as st
 import os
 import pandas as pd
@@ -93,10 +94,10 @@ def clear_token(token):
 
 # ── GitHub‐backed banner synchronization ──────────────────────────────────────
 def sync_home_banner_after_pull():
-    # remove any local copy
+    # remove local copy
     if os.path.exists(HOME_BANNER_PATH):
         os.remove(HOME_BANNER_PATH)
-    # then re‐pull from DB
+    # then re‐pull from session_state["db_df"]
     if "db_df" in st.session_state:
         df = st.session_state["db_df"]
         idx = df.index[df["Tab"]=="HomeBanner"].tolist()
@@ -161,7 +162,7 @@ def save_project_management_to_github():
             df_data = pd.concat([df_data,new], ignore_index=True)
         else:
             df_data.loc[idx[0],"Data"] = sched
-    # (repeat for resource_data, progress_data if you like)
+    # add other sub‐tab saves here if desired
     push_database(df_data, sha)
 
 def save_tools_utilities_to_github():
@@ -256,7 +257,7 @@ def main_app():
     db_df, db_sha = pull_database()
     st.session_state["db_df"], st.session_state["db_sha"] = db_df, db_sha
 
-    # sync home banner
+    # sync banner from GitHub
     sync_home_banner_after_pull()
 
     if st.button("Logout"):
@@ -269,7 +270,7 @@ def main_app():
         run_home()
         if st.button("Save Home Banner"):
             save_home_banner_to_github()
-            st.success("✅ Home banner saved!")
+            st.success("✅ Home banner saved! Please refresh to view changes.")
     elif tab == "Design and Analysis":
         design_analysis.run()
         if st.button("Save Design Analysis", key="save_design"):
