@@ -4,14 +4,10 @@ import streamlit as st
 import os
 import requests
 
-# Path to banner
-HOME_BANNER_PATH = "uploads/home header image.jpg"
+# Path to banner image at repo root
+HOME_BANNER_PATH = "home header image.jpg"
 
 def run():
-    # Ensure upload folder exists
-    if not os.path.isdir("uploads"):
-        os.makedirs("uploads")
-
     st.title("🏠 Welcome to the Civil Engineer Automation Tool (Home)")
 
     # Greet user
@@ -49,11 +45,7 @@ def run():
 
     # Expander for managing banner
     with st.expander("Manage Home Banner Image"):
-        st.markdown("""
-        You can **upload** a local image, **fetch** one from a URL, or **delete/reset** the current banner.
-        """)
-
-        # --- Upload from local ---
+        # Upload local file
         uploaded_file = st.file_uploader(
             "Upload a local image (PNG/JPG)", 
             type=["png", "jpg", "jpeg"],
@@ -67,7 +59,7 @@ def run():
 
         st.write("---")
 
-        # --- Fetch from URL ---
+        # Fetch from URL
         url = st.text_input("Or enter an image URL:", key="home_web_image_url")
         if st.button("Fetch & Set from URL", key="fetch_url_image"):
             if not url:
@@ -88,7 +80,7 @@ def run():
 
         st.write("---")
 
-        # --- Delete / Reset ---
+        # Delete / Reset
         if st.button("Delete/Reset Banner", key="delete_banner"):
             if os.path.exists(HOME_BANNER_PATH):
                 os.remove(HOME_BANNER_PATH)
