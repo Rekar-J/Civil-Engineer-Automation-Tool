@@ -4,17 +4,21 @@ import streamlit as st
 import os
 import requests
 
-# Path to banner file at repo root
-HOME_BANNER_PATH = "home_banner.jpg"
+# Path to banner
+HOME_BANNER_PATH = "uploads/home header image.jpg"
 
 def run():
+    # Ensure upload folder exists
+    if not os.path.isdir("uploads"):
+        os.makedirs("uploads")
+
     st.title("🏠 Welcome to the Civil Engineer Automation Tool (Home)")
 
     # Greet user
     if st.session_state.get("username"):
         st.write(f"### 🔵 Welcome, **{st.session_state['username']}!**")
     else:
-        st.warning("⚠️ Username not found—please log in again.")
+        st.warning("⚠️ Username not found in session state. Try logging in again.")
 
     # Two‑column layout
     col1, col2 = st.columns([2, 1])
@@ -32,7 +36,7 @@ def run():
         - ✅ **Compliance Verification & Reporting**
         - 🔗 **Collaboration & Documentation Tools**
         
-        Use the right panel below to manage your home banner image.
+        Use the panel on the right to manage your home banner image.
         """)
     with col2:
         st.subheader("Current Banner Image")
@@ -45,42 +49,46 @@ def run():
 
     # Expander for managing banner
     with st.expander("Manage Home Banner Image"):
-        # --- 1) Upload local file ---
-        uploaded = st.file_uploader(
+        st.markdown("""
+        You can **upload** a local image, **fetch** one from a URL, or **delete/reset** the current banner.
+        """)
+
+        # --- Upload from local ---
+        uploaded_file = st.file_uploader(
             "Upload a local image (PNG/JPG)", 
             type=["png", "jpg", "jpeg"],
             key="home_local_image"
         )
-        if uploaded:
+        if uploaded_file:
             with open(HOME_BANNER_PATH, "wb") as f:
-                f.write(uploaded.getbuffer())
+                f.write(uploaded_file.getbuffer())
             st.success("✅ Banner uploaded!")
             st.image(HOME_BANNER_PATH, use_container_width=True)
 
         st.write("---")
 
-        # --- 2) Fetch from URL ---
+        # --- Fetch from URL ---
         url = st.text_input("Or enter an image URL:", key="home_web_image_url")
         if st.button("Fetch & Set from URL", key="fetch_url_image"):
             if not url:
-                st.error("Please enter a URL.")
+                st.error("Please enter a valid URL.")
             else:
                 try:
-                    r = requests.get(url, timeout=10)
-                    ct = r.headers.get("Content-Type", "")
-                    if r.status_code == 200 and ct.startswith("image"):
+                    resp = requests.get(url, timeout=10)
+                    ctype = resp.headers.get("Content-Type", "")
+                    if resp.status_code == 200 and ctype.startswith("image"):
                         with open(HOME_BANNER_PATH, "wb") as f:
-                            f.write(r.content)
+                            f.write(resp.content)
                         st.success("✅ Banner fetched!")
                         st.image(HOME_BANNER_PATH, use_container_width=True)
                     else:
-                        st.error("URL did not return an image.")
+                        st.error("Response was not an image.")
                 except Exception as e:
-                    st.error(f"Error: {e}")
+                    st.error(f"Error fetching image: {e}")
 
         st.write("---")
 
-        # --- 3) Delete/Reset Banner ---
+        # --- Delete / Reset ---
         if st.button("Delete/Reset Banner", key="delete_banner"):
             if os.path.exists(HOME_BANNER_PATH):
                 os.remove(HOME_BANNER_PATH)
