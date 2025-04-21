@@ -4,7 +4,7 @@ import pandas as pd
 import uuid
 import base64
 
-# Must be the first Streamlit command
+# Must be the very first Streamlit command
 st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide")
 
 from streamlit_cookies_manager import EncryptedCookieManager
@@ -193,33 +193,36 @@ def save_structural_analysis_to_github():
 
 def save_project_management_to_github():
     df_data, sha = pull_database()
+    # Scheduling
     if "scheduling_data" in st.session_state:
         csv = st.session_state.scheduling_data.to_csv(index=False)
         idx = df_data.index[
-            (df_data["Tab"] == "ProjectManagement") &
-            (df_data["SubTab"] == "Scheduling")
+            (df_data["Tab"]=="ProjectManagement") &
+            (df_data["SubTab"]=="Scheduling")
         ].tolist()
         if not idx:
             new = pd.DataFrame({"Tab":["ProjectManagement"], "SubTab":["Scheduling"], "Data":[csv]})
             df_data = pd.concat([df_data, new], ignore_index=True)
         else:
             df_data.loc[idx[0], "Data"] = csv
+    # Resources
     if "resource_data" in st.session_state:
         csv = st.session_state.resource_data.to_csv(index=False)
         idx = df_data.index[
-            (df_data["Tab"] == "ProjectManagement") &
-            (df_data["SubTab"] == "Resource")
+            (df_data["Tab"]=="ProjectManagement") &
+            (df_data["SubTab"]=="Resource")
         ].tolist()
         if not idx:
             new = pd.DataFrame({"Tab":["ProjectManagement"], "SubTab":["Resource"], "Data":[csv]})
             df_data = pd.concat([df_data, new], ignore_index=True)
         else:
             df_data.loc[idx[0], "Data"] = csv
+    # Progress
     if "progress_data" in st.session_state:
         csv = st.session_state.progress_data.to_csv(index=False)
         idx = df_data.index[
-            (df_data["Tab"] == "ProjectManagement") &
-            (df_data["SubTab"] == "Progress")
+            (df_data["Tab"]=="ProjectManagement") &
+            (df_data["SubTab"]=="Progress")
         ].tolist()
         if not idx:
             new = pd.DataFrame({"Tab":["ProjectManagement"], "SubTab":["Progress"], "Data":[csv]})
@@ -233,8 +236,8 @@ def save_tools_utilities_to_github():
     if "cost_estimation_data" in st.session_state:
         csv = st.session_state.cost_estimation_data.to_csv(index=False)
         idx = df_data.index[
-            (df_data["Tab"] == "ToolsUtilities") &
-            (df_data["SubTab"] == "CostEstimation")
+            (df_data["Tab"]=="ToolsUtilities") &
+            (df_data["SubTab"]=="CostEstimation")
         ].tolist()
         if not idx:
             new = pd.DataFrame({"Tab":["ToolsUtilities"], "SubTab":["CostEstimation"], "Data":[csv]})
@@ -262,7 +265,7 @@ def save_collaboration_docs_to_github():
             df_data.loc[idx[0], "Data"] = csv
         push_database(df_data, sha)
 
-# --- Main Application Loop ---
+# --- Main App ---
 def main_app():
     db_df, db_sha = pull_database()
     st.session_state["db_df"], st.session_state["db_sha"] = db_df, db_sha
@@ -279,38 +282,39 @@ def main_app():
         if st.button("Save Changes", key="save_home_banner"):
             save_home_banner_to_github()
             st.success("🏠 Home banner saved.")
-            st.stop()
+            st.experimental_rerun()
 
     elif selected_tab == "Design and Analysis":
         design_analysis.run()
         if st.button("Save Changes", key="save_struct_analysis"):
             save_structural_analysis_to_github()
             st.success("🛠️ Structural data saved.")
-            st.stop()
+            st.experimental_rerun()
 
     elif selected_tab == "Project Management":
         project_management.run()
         if st.button("Save Changes", key="save_project_mgmt"):
             save_project_management_to_github()
             st.success("📅 Project management data saved.")
-            st.stop()
+            st.experimental_rerun()
 
     elif selected_tab == "Compliance and Reporting":
         compliance_reporting.run()
+        # no persistent data here
 
     elif selected_tab == "Tools and Utilities":
         tools_utilities.run()
         if st.button("Save Changes", key="save_tools_utils"):
             save_tools_utilities_to_github()
             st.success("⚙️ Tools & utilities data saved.")
-            st.stop()
+            st.experimental_rerun()
 
     elif selected_tab == "Collaboration and Documentation":
         collaboration_documentation.run()
         if st.button("Save Changes", key="save_collab_docs"):
             save_collaboration_docs_to_github()
             st.success("📄 Collaboration docs saved.")
-            st.stop()
+            st.experimental_rerun()
 
 def check_cookie_session():
     tok = get_cookie("session_token")
