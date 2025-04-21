@@ -4,7 +4,7 @@ import pandas as pd
 import uuid
 import base64
 
-# Must be the very first Streamlit command
+# Must be the first Streamlit command
 st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide")
 
 from streamlit_cookies_manager import EncryptedCookieManager
@@ -42,6 +42,7 @@ def clear_cookie(key):
         del cookies[key]
     cookies.save()
 
+# In‑memory users table
 USERS_DF = pd.DataFrame(columns=["username","password","token"])
 USERS_SHA = None
 
@@ -65,53 +66,55 @@ def save_users_local(df):
     global USERS_DF, USERS_SHA
     USERS_DF = df.copy()
     code = push_users(USERS_DF, USERS_SHA)
-    if code in (200, 201):
+    if code in (200,201):
         new_df, new_sha = pull_users()
         USERS_DF, USERS_SHA = ensure_columns(new_df), new_sha
 
 def user_exists(username):
-    return not load_users_local()[load_users_local()["username"] == username].empty
+    return not load_users_local()[load_users_local()["username"]==username].empty
 
 def check_credentials(username, password):
     df = load_users_local()
-    return not df[(df["username"] == username) & (df["password"] == password)].empty
+    return not df[(df["username"]==username)&(df["password"]==password)].empty
 
 def create_user(username, password):
     df = load_users_local()
-    new = pd.DataFrame({"username":[username], "password":[password], "token":[""]})
+    new = pd.DataFrame({"username":[username],"password":[password],"token":[""]})
     save_users_local(pd.concat([df, new], ignore_index=True))
 
 def set_token_for_user(username, token):
     df = load_users_local()
-    df.loc[df["username"] == username, "token"] = token
+    df.loc[df["username"]==username, "token"] = token
     save_users_local(df)
 
 def find_user_by_token(token):
-    row = load_users_local()[load_users_local()["token"] == token]
+    row = load_users_local()[load_users_local()["token"]==token]
     return row.iloc[0] if not row.empty else None
 
 def clear_token(token):
     df = load_users_local()
-    df.loc[df["token"] == token, "token"] = ""
+    df.loc[df["token"]==token, "token"] = ""
     save_users_local(df)
 
 def sign_up_screen():
     st.title("Create a New Account")
     user = st.text_input("Choose a Username", key="signup_username")
-    pw   = st.text_input("Choose a Password", type="password", key="signup_password")
+    pw = st.text_input("Choose a Password", type="password", key="signup_password")
     if st.button("Sign Up"):
         if user and pw and not user_exists(user):
             create_user(user, pw)
             tok = str(uuid.uuid4())
             set_token_for_user(user, tok)
-            st.session_state["logged_in"] = True
-            st.session_state["username"]  = user
-            st.session_state["session_token"] = tok
+            st.session_state.update({
+                "logged_in": True,
+                "username": user,
+                "session_token": tok
+            })
             set_cookie("session_token", tok)
-        st.stop()
+        st.experimental_rerun()
 
 def login_screen():
-    st.title("🔒 Login to Civil Engineer Automation Tool")
+    st.title("🔒 Login")
     user = st.text_input("Username", key="login_username")
     pw   = st.text_input("Password", type="password", key="login_password")
     c1, c2 = st.columns(2)
@@ -120,15 +123,17 @@ def login_screen():
             if check_credentials(user, pw):
                 tok = str(uuid.uuid4())
                 set_token_for_user(user, tok)
-                st.session_state["logged_in"] = True
-                st.session_state["username"]  = user
-                st.session_state["session_token"] = tok
+                st.session_state.update({
+                    "logged_in": True,
+                    "username": user,
+                    "session_token": tok
+                })
                 set_cookie("session_token", tok)
-            st.stop()
+            st.experimental_rerun()
     with c2:
         if st.button("Sign Up"):
             st.session_state["sign_up"] = True
-            st.stop()
+            st.experimental_rerun()
 
 def logout():
     if st.session_state.get("session_token"):
@@ -140,15 +145,15 @@ def logout():
         "session_token": None
     })
 
-# --- Persistence Helpers ---
+# --- Home Banner Persistence ---
 def sync_home_banner_after_pull():
     if not os.path.exists("uploads"):
         os.makedirs("uploads")
-    if "db_df" in st.session_state and st.session_state["db_df"] is not None:
-        df = st.session_state["db_df"]
-        idx = df.index[df["Tab"] == "HomeBanner"].tolist()
-        if idx:
-            b64 = df.loc[idx[0], "Data"]
+    df = st.session_state.get("db_df")
+    if df is not None:
+        rows = df.index[df["Tab"]=="HomeBanner"].tolist()
+        if rows:
+            b64 = df.loc[rows[0], "Data"]
             if b64:
                 try:
                     img = base64.b64decode(b64)
@@ -162,158 +167,126 @@ def save_home_banner_to_github():
         return
     with open(HOME_BANNER_PATH, "rb") as f:
         b64 = base64.b64encode(f.read()).decode()
-    df_data, sha = pull_database()
-    idx = df_data.index[df_data["Tab"] == "HomeBanner"].tolist()
-    if not idx:
-        new = pd.DataFrame({"Tab":["HomeBanner"], "SubTab":[""], "Data":[b64]})
-        df_data = pd.concat([df_data, new], ignore_index=True)
+    df, sha = pull_database()
+    rows = df.index[df["Tab"]=="HomeBanner"].tolist()
+    if rows:
+        df.loc[rows[0], "Data"] = b64
     else:
-        df_data.loc[idx[0], "Data"] = b64
-    push_database(df_data, sha)
+        df = pd.concat([df, pd.DataFrame([{"Tab":"HomeBanner","SubTab":"","Data":b64}])], ignore_index=True)
+    push_database(df, sha)
 
+# --- Design & Analysis Persistence ---
 def save_structural_analysis_to_github():
     if "structural_data" not in st.session_state:
         return
-    df_data, sha = pull_database()
-    csv = st.session_state.structural_data.to_csv(index=False)
-    idx = df_data.index[
-        (df_data["Tab"] == "DesignAnalysis") &
-        (df_data["SubTab"] == "Structural")
-    ].tolist()
-    if not idx:
-        new = pd.DataFrame({
-            "Tab":["DesignAnalysis"],
-            "SubTab":["Structural"],
-            "Data":[csv]
-        })
-        df_data = pd.concat([df_data, new], ignore_index=True)
+    df, sha = pull_database()
+    data_csv = st.session_state.structural_data.to_csv(index=False)
+    rows = df.index[(df["Tab"]=="DesignAnalysis")&(df["SubTab"]=="Structural")].tolist()
+    if rows:
+        df.loc[rows[0], "Data"] = data_csv
     else:
-        df_data.loc[idx[0], "Data"] = csv
-    push_database(df_data, sha)
+        df = pd.concat([df, pd.DataFrame([{"Tab":"DesignAnalysis","SubTab":"Structural","Data":data_csv}])], ignore_index=True)
+    push_database(df, sha)
 
+# --- Project Management Persistence ---
 def save_project_management_to_github():
-    df_data, sha = pull_database()
-    # Scheduling
+    df, sha = pull_database()
+    # scheduling
     if "scheduling_data" in st.session_state:
         csv = st.session_state.scheduling_data.to_csv(index=False)
-        idx = df_data.index[
-            (df_data["Tab"]=="ProjectManagement") &
-            (df_data["SubTab"]=="Scheduling")
-        ].tolist()
-        if not idx:
-            new = pd.DataFrame({"Tab":["ProjectManagement"], "SubTab":["Scheduling"], "Data":[csv]})
-            df_data = pd.concat([df_data, new], ignore_index=True)
+        rows = df.index[(df["Tab"]=="ProjectManagement")&(df["SubTab"]=="Scheduling")].tolist()
+        if rows:
+            df.loc[rows[0], "Data"] = csv
         else:
-            df_data.loc[idx[0], "Data"] = csv
-    # Resources
+            df = pd.concat([df, pd.DataFrame([{"Tab":"ProjectManagement","SubTab":"Scheduling","Data":csv}])], ignore_index=True)
+    # resource
     if "resource_data" in st.session_state:
         csv = st.session_state.resource_data.to_csv(index=False)
-        idx = df_data.index[
-            (df_data["Tab"]=="ProjectManagement") &
-            (df_data["SubTab"]=="Resource")
-        ].tolist()
-        if not idx:
-            new = pd.DataFrame({"Tab":["ProjectManagement"], "SubTab":["Resource"], "Data":[csv]})
-            df_data = pd.concat([df_data, new], ignore_index=True)
+        rows = df.index[(df["Tab"]=="ProjectManagement")&(df["SubTab"]=="Resource")].tolist()
+        if rows:
+            df.loc[rows[0], "Data"] = csv
         else:
-            df_data.loc[idx[0], "Data"] = csv
-    # Progress
+            df = pd.concat([df, pd.DataFrame([{"Tab":"ProjectManagement","SubTab":"Resource","Data":csv}])], ignore_index=True)
+    # progress
     if "progress_data" in st.session_state:
         csv = st.session_state.progress_data.to_csv(index=False)
-        idx = df_data.index[
-            (df_data["Tab"]=="ProjectManagement") &
-            (df_data["SubTab"]=="Progress")
-        ].tolist()
-        if not idx:
-            new = pd.DataFrame({"Tab":["ProjectManagement"], "SubTab":["Progress"], "Data":[csv]})
-            df_data = pd.concat([df_data, new], ignore_index=True)
+        rows = df.index[(df["Tab"]=="ProjectManagement")&(df["SubTab"]=="Progress")].tolist()
+        if rows:
+            df.loc[rows[0], "Data"] = csv
         else:
-            df_data.loc[idx[0], "Data"] = csv
-    push_database(df_data, sha)
+            df = pd.concat([df, pd.DataFrame([{"Tab":"ProjectManagement","SubTab":"Progress","Data":csv}])], ignore_index=True)
+    push_database(df, sha)
 
+# --- Tools & Utilities Persistence ---
 def save_tools_utilities_to_github():
-    df_data, sha = pull_database()
+    df, sha = pull_database()
     if "cost_estimation_data" in st.session_state:
         csv = st.session_state.cost_estimation_data.to_csv(index=False)
-        idx = df_data.index[
-            (df_data["Tab"]=="ToolsUtilities") &
-            (df_data["SubTab"]=="CostEstimation")
-        ].tolist()
-        if not idx:
-            new = pd.DataFrame({"Tab":["ToolsUtilities"], "SubTab":["CostEstimation"], "Data":[csv]})
-            df_data = pd.concat([df_data, new], ignore_index=True)
+        rows = df.index[(df["Tab"]=="ToolsUtilities")&(df["SubTab"]=="CostEstimation")].tolist()
+        if rows:
+            df.loc[rows[0], "Data"] = csv
         else:
-            df_data.loc[idx[0], "Data"] = csv
-        push_database(df_data, sha)
+            df = pd.concat([df, pd.DataFrame([{"Tab":"ToolsUtilities","SubTab":"CostEstimation","Data":csv}])], ignore_index=True)
+    push_database(df, sha)
 
+# --- Collaboration Docs Persistence ---
 def save_collaboration_docs_to_github():
-    df_data, sha = pull_database()
+    df, sha = pull_database()
     if "document_data" in st.session_state:
         csv = st.session_state.document_data.to_csv(index=False)
-        idx = df_data.index[
-            (df_data["Tab"] == "CollaborationDocs") &
-            (df_data["SubTab"] == "Documents")
-        ].tolist()
-        if not idx:
-            new = pd.DataFrame({
-                "Tab":["CollaborationDocs"],
-                "SubTab":["Documents"],
-                "Data":[csv]
-            })
-            df_data = pd.concat([df_data, new], ignore_index=True)
+        rows = df.index[(df["Tab"]=="CollaborationDocs")&(df["SubTab"]=="Documents")].tolist()
+        if rows:
+            df.loc[rows[0], "Data"] = csv
         else:
-            df_data.loc[idx[0], "Data"] = csv
-        push_database(df_data, sha)
+            df = pd.concat([df, pd.DataFrame([{"Tab":"CollaborationDocs","SubTab":"Documents","Data":csv}])], ignore_index=True)
+    push_database(df, sha)
 
 # --- Main App ---
 def main_app():
+    # Pull latest database and sync banner
     db_df, db_sha = pull_database()
     st.session_state["db_df"], st.session_state["db_sha"] = db_df, db_sha
     sync_home_banner_after_pull()
 
+    # Logout button
     if st.button("Logout"):
         logout()
-        st.stop()
+        st.experimental_rerun()
 
-    selected_tab = render_sidebar()
+    tab = render_sidebar()
 
-    if selected_tab == "Home":
+    if tab == "Home":
         run_home()
-        if st.button("Save Changes", key="save_home_banner"):
+        if st.button("Save Home Banner", key="save_home"):
             save_home_banner_to_github()
-            st.success("🏠 Home banner saved.")
             st.experimental_rerun()
 
-    elif selected_tab == "Design and Analysis":
+    elif tab == "Design and Analysis":
         design_analysis.run()
-        if st.button("Save Changes", key="save_struct_analysis"):
+        if st.button("Save Structural Analysis", key="save_design"):
             save_structural_analysis_to_github()
-            st.success("🛠️ Structural data saved.")
             st.experimental_rerun()
 
-    elif selected_tab == "Project Management":
+    elif tab == "Project Management":
         project_management.run()
-        if st.button("Save Changes", key="save_project_mgmt"):
+        if st.button("Save Project Management", key="save_projects"):
             save_project_management_to_github()
-            st.success("📅 Project management data saved.")
             st.experimental_rerun()
 
-    elif selected_tab == "Compliance and Reporting":
+    elif tab == "Compliance and Reporting":
         compliance_reporting.run()
         # no persistent data here
 
-    elif selected_tab == "Tools and Utilities":
+    elif tab == "Tools and Utilities":
         tools_utilities.run()
-        if st.button("Save Changes", key="save_tools_utils"):
+        if st.button("Save Tools & Utilities", key="save_tools"):
             save_tools_utilities_to_github()
-            st.success("⚙️ Tools & utilities data saved.")
             st.experimental_rerun()
 
-    elif selected_tab == "Collaboration and Documentation":
+    elif tab == "Collaboration and Documentation":
         collaboration_documentation.run()
-        if st.button("Save Changes", key="save_collab_docs"):
+        if st.button("Save Collaboration Docs", key="save_collab"):
             save_collaboration_docs_to_github()
-            st.success("📄 Collaboration docs saved.")
             st.experimental_rerun()
 
 def check_cookie_session():
@@ -336,6 +309,7 @@ def run():
     st.session_state.setdefault("session_token", None)
 
     check_cookie_session()
+
     if not st.session_state["logged_in"]:
         if st.session_state["sign_up"]:
             sign_up_screen()
