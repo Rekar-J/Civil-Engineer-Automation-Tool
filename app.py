@@ -1,5 +1,9 @@
 # app.py
+
 import streamlit as st
+# ── MUST be the very first Streamlit command ────────────────────────────────
+st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide")
+
 import pandas as pd
 import uuid
 
@@ -12,10 +16,8 @@ import tabs.compliance_reporting as compliance_reporting
 import tabs.tools_utilities as tools_utilities
 import tabs.collaboration_documentation as collaboration_documentation
 
+# Now it’s safe to pull in anything that reads st.secrets:
 from pushpull import pull_users, push_users, pull_database, push_database
-
-# ── Streamlit page config ────────────────────────────────────────────────
-st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide")
 
 # ── Cookie & user management ───────────────────────────────────────────────
 COOKIES_PASSWORD = "MY_SUPER_SECRET_PASSWORD_1234"
@@ -32,7 +34,7 @@ def clear_cookie(k):
         del cookies[k]
     cookies.save()
 
-# ── In‑memory users DataFrame ─────────────────────────────────────────────
+# ── In‑memory users DataFrame ───────────────────────────────────────────────
 USERS_DF = pd.DataFrame(columns=["username","password","token"])
 USERS_SHA = None
 
@@ -231,7 +233,7 @@ def logout():
 
 # ── Main App ───────────────────────────────────────────────────────────────
 def main_app():
-    db_df, db_sha = pull_database()
+    db_df, db_sha = pull_DATABASE()
     st.session_state["db_df"], st.session_state["db_sha"] = db_df, db_sha
 
     if st.button("Logout"):
@@ -303,7 +305,6 @@ def run():
     st.session_state.setdefault("session_token", None)
 
     check_cookie_session()
-
     if not st.session_state["logged_in"]:
         if st.session_state["sign_up"]:
             sign_up_screen()
