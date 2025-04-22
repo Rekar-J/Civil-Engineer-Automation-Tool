@@ -1,2 +1,4 @@
 Tab,SubTab,Data
-
+DesignAnalysis,Structural,"Load Type,Load Value (kN),Distance (m),Load Factor,Moment (kN-m)
+Dead Load,12.0,3.0,1.0,36.0
+"
