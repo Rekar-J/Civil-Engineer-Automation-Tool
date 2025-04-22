@@ -135,66 +135,32 @@ def run_structural_analysis():
 
 
 
+# --- Geotechnical Analysis Section ---
 def run_geotechnical_analysis():
     st.header("Geotechnical Analysis")
     st.subheader("📌 About Geotechnical Analysis")
-    st.info("Compute consolidation, lateral earth pressures, settlement, CPT correlations, etc.")
+    st.info("Geotechnical analysis assesses **soil properties** to determine foundation suitability.")
 
-    # --- 1) Soil Properties ---
-    if "geo_data" not in st.session_state:
-        st.session_state.geo_data = {}
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        soil = st.selectbox("Soil Type", ["Clay","Silt","Sand","Gravel","Rock"], key="geo_soil")
-    with col2:
-        gamma = st.number_input("Unit Weight γ (kN/m³)",  min_value=9.0,  max_value=22.0,  step=0.1, key="geo_gamma")
-    with col3:
-        phi = st.number_input("ϕ (°)",           min_value=0.0,  max_value=45.0,  step=0.5, key="geo_phi")
+    soil_types = ["Clay", "Sand", "Gravel", "Silt", "Rock"]
+    selected_soil = st.selectbox("Select Soil Type", soil_types)
+    density = st.number_input("Enter Density (kg/m³)", min_value=1000, max_value=2500, step=10)
+    cohesion = st.number_input("Enter Cohesion (kPa)", min_value=0, max_value=100, step=1)
 
-    # --- 2) Consolidation Settlement ---
-    with st.expander("Consolidation Settlement", expanded=True):
-        H = st.number_input("Layer Thickness H (m)",   min_value=0.0, key="cons_H")
-        e0 = st.number_input("Initial void ratio e₀",   min_value=0.0, key="cons_e0")
-        Cc = st.number_input("Compression Index Cc",    min_value=0.0, key="cons_Cc")
-        sigma_i = st.number_input("σ′₀ (initial) (kPa)", min_value=0.0, key="cons_sigma0")
-        sigma_f = st.number_input("σ′f (final) (kPa)",   min_value=0.0, key="cons_sigmaf")
-        if st.button("▶️ Compute Settlement", key="cons_compute"):
-            ΔH = (Cc/(1+e0))*H*np.log10(sigma_f/sigma_i)
-            st.session_state.geo_data["settlement"] = ΔH
-    if "settlement" in st.session_state.geo_data:
-        st.write(f"• **Estimated Settlement:** {st.session_state.geo_data['settlement']:.3f} m")
+    if "geotechnical_data" not in st.session_state:
+        st.session_state.geotechnical_data = pd.DataFrame(columns=["Soil Type", "Density", "Cohesion"])
 
-    # --- 3) At‑Rest Lateral Earth Pressure (K₀) ---
-    with st.expander("Lateral Earth Pressure", expanded=False):
-        K0 = 1 - np.sin(np.deg2rad(phi))
-        st.write(f"• **At‑Rest Pressure Coeff. K₀:** {K0:.3f}")
-        st.write(f"• **σₕ₀ = K₀·σᵥ** (vertical stress · K₀)")
+    if st.button("Add Soil Data"):
+        new_row = pd.DataFrame({
+            "Soil Type": [selected_soil],
+            "Density": [density],
+            "Cohesion": [cohesion]
+        })
+        st.session_state.geotechnical_data = pd.concat(
+            [st.session_state.geotechnical_data, new_row], ignore_index=True
+        )
 
-    # --- 4) Settlement via Schmertmann (CPT) Correlations ---
-    with st.expander("CPT Settlement Correlation", expanded=False):
-        qc = st.number_input("Cone Resistance qₙc (MPa)", min_value=0.0, key="cpt_qc")
-        Nkt = 15.0  # typical correlation factor
-        if st.button("▶️ Compute CPT Settlement", key="cpt_compute"):
-            su = qc / Nkt
-            st.session_state.geo_data["cpt_su"] = su
-        if "cpt_su" in st.session_state.geo_data:
-            st.write(f"• **Estimated Undrained Shear Strength sᵤ:** {st.session_state.geo_data['cpt_su']:.2f} MPa")
-
-    # --- 5) Tabulate & Save ---
-    # collect into a DataFrame for review/pushpull
-    df = pd.DataFrame([{
-        "Soil": soil,
-        "γ (kN/m³)": gamma,
-        "ϕ (°)": phi,
-        "Settlement (m)": st.session_state.geo_data.get("settlement","—"),
-        "K₀": st.session_state.geo_data.get("K0",K0),
-        "sᵤ (MPa)": st.session_state.geo_data.get("cpt_su","—"),
-    }])
-    st.write("### Geotechnical Summary")
-    st.dataframe(df)
-
-    # store for SAVE
-    st.session_state.geotech_results = df
+    st.write("### Soil Data")
+    st.dataframe(st.session_state.geotechnical_data)
 
 
 
