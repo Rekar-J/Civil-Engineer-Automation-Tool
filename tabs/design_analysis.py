@@ -134,101 +134,67 @@ def run_structural_analysis():
 
 
 
-# --- Geotechnical Analysis Section (upgraded) ---
+
 def run_geotechnical_analysis():
     st.header("Geotechnical Analysis")
     st.subheader("📌 About Geotechnical Analysis")
-    st.info(
-        "Define soil layers, enter foundation parameters, and compute ultimate & allowable "
-        "bearing capacity per Terzaghi’s method."
-    )
+    st.info("Compute consolidation, lateral earth pressures, settlement, CPT correlations, etc.")
 
-    # --- 1) Soil Layer Inputs ---
-    st.markdown("#### 1️⃣ Define Soil Layers")
-    if "geo_layers" not in st.session_state:
-        st.session_state.geo_layers = pd.DataFrame(
-            columns=["Soil Type", "Unit Weight γ (kN/m³)", "Cohesion c (kPa)", "ϕ (°)", "Thickness H (m)"]
-        )
-    with st.expander("Add a Soil Layer", expanded=True):
-        col1, col2, col3, col4, col5 = st.columns([2,2,2,2,2])
-        with col1:
-            soil = st.selectbox("Soil Type", ["Clay", "Sand", "Gravel", "Silt", "Rock"], key="geo_type")
-        with col2:
-            gamma = st.number_input("γ (kN/m³)", min_value=8.0, max_value=22.0, value=18.0, key="geo_gamma")
-        with col3:
-            c = st.number_input("c (kPa)", min_value=0.0, max_value=200.0, value=0.0, key="geo_c")
-        with col4:
-            phi = st.number_input("ϕ (°)", min_value=0.0, max_value=45.0, value=30.0, key="geo_phi")
-        with col5:
-            H = st.number_input("Layer H (m)", min_value=0.1, value=1.0, key="geo_H")
-        if st.button("➕ Add Layer", key="geo_add"):
-            new = {
-                "Soil Type": soil,
-                "Unit Weight γ (kN/m³)": gamma,
-                "Cohesion c (kPa)": c,
-                "ϕ (°)": phi,
-                "Thickness H (m)": H
-            }
-            st.session_state.geo_layers = pd.concat([
-                st.session_state.geo_layers,
-                pd.DataFrame([new])
-            ], ignore_index=True)
+    # --- 1) Soil Properties ---
+    if "geo_data" not in st.session_state:
+        st.session_state.geo_data = {}
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        soil = st.selectbox("Soil Type", ["Clay","Silt","Sand","Gravel","Rock"], key="geo_soil")
+    with col2:
+        gamma = st.number_input("Unit Weight γ (kN/m³)",  min_value=9.0,  max_value=22.0,  step=0.1, key="geo_gamma")
+    with col3:
+        phi = st.number_input("ϕ (°)",           min_value=0.0,  max_value=45.0,  step=0.5, key="geo_phi")
 
-    # Show layers
-    st.write("##### Defined Soil Layers")
-    st.dataframe(st.session_state.geo_layers)
+    # --- 2) Consolidation Settlement ---
+    with st.expander("Consolidation Settlement", expanded=True):
+        H = st.number_input("Layer Thickness H (m)",   min_value=0.0, key="cons_H")
+        e0 = st.number_input("Initial void ratio e₀",   min_value=0.0, key="cons_e0")
+        Cc = st.number_input("Compression Index Cc",    min_value=0.0, key="cons_Cc")
+        sigma_i = st.number_input("σ′₀ (initial) (kPa)", min_value=0.0, key="cons_sigma0")
+        sigma_f = st.number_input("σ′f (final) (kPa)",   min_value=0.0, key="cons_sigmaf")
+        if st.button("▶️ Compute Settlement", key="cons_compute"):
+            ΔH = (Cc/(1+e0))*H*np.log10(sigma_f/sigma_i)
+            st.session_state.geo_data["settlement"] = ΔH
+    if "settlement" in st.session_state.geo_data:
+        st.write(f"• **Estimated Settlement:** {st.session_state.geo_data['settlement']:.3f} m")
 
-    # --- 2) Foundation Parameters ---
-    st.markdown("#### 2️⃣ Foundation Parameters")
-    fcol1, fcol2, fcol3, fcol4 = st.columns(4)
-    with fcol1:
-        ftype = st.selectbox("Foundation Type", ["Strip", "Square", "Circular"], key="geo_ftype")
-    with fcol2:
-        B = st.number_input("Width B (m)", min_value=0.1, value=1.0, key="geo_B")
-    with fcol3:
-        D = st.number_input("Embedment Depth D (m)", min_value=0.0, value=1.0, key="geo_D")
-    with fcol4:
-        FS = st.number_input("Factor of Safety", min_value=1.5, value=3.0, key="geo_FS")
+    # --- 3) At‑Rest Lateral Earth Pressure (K₀) ---
+    with st.expander("Lateral Earth Pressure", expanded=False):
+        K0 = 1 - np.sin(np.deg2rad(phi))
+        st.write(f"• **At‑Rest Pressure Coeff. K₀:** {K0:.3f}")
+        st.write(f"• **σₕ₀ = K₀·σᵥ** (vertical stress · K₀)")
 
-    # --- 3) Terzaghi Bearing Capacity ---
-    if st.button("🔎 Compute Bearing Capacity", key="geo_compute"):
-        if st.session_state.geo_layers.empty:
-            st.error("Add at least one soil layer above.")
-        else:
-            # For Terzaghi we use top layer soil properties
-            top = st.session_state.geo_layers.iloc[0]
-            γ = top["Unit Weight γ (kN/m³)"]
-            c = top["Cohesion c (kPa)"]
-            ϕ = top["ϕ (°)"]
-            ϕr = np.radians(ϕ)
+    # --- 4) Settlement via Schmertmann (CPT) Correlations ---
+    with st.expander("CPT Settlement Correlation", expanded=False):
+        qc = st.number_input("Cone Resistance qₙc (MPa)", min_value=0.0, key="cpt_qc")
+        Nkt = 15.0  # typical correlation factor
+        if st.button("▶️ Compute CPT Settlement", key="cpt_compute"):
+            su = qc / Nkt
+            st.session_state.geo_data["cpt_su"] = su
+        if "cpt_su" in st.session_state.geo_data:
+            st.write(f"• **Estimated Undrained Shear Strength sᵤ:** {st.session_state.geo_data['cpt_su']:.2f} MPa")
 
-            # Compute bearing factors
-            if ϕ > 0:
-                Nq = np.exp(np.pi * np.tan(ϕr)) * (np.tan(np.radians(45) + ϕr/2)**2)
-                Nc = (Nq - 1.0) / np.tan(ϕr)
-                Nγ = 2.0 * (Nq + 1.0) * np.tan(ϕr)
-            else:
-                # φ = 0 (clay) typical values
-                Nq, Nc, Nγ = 1.0, 5.14, 0.0
+    # --- 5) Tabulate & Save ---
+    # collect into a DataFrame for review/pushpull
+    df = pd.DataFrame([{
+        "Soil": soil,
+        "γ (kN/m³)": gamma,
+        "ϕ (°)": phi,
+        "Settlement (m)": st.session_state.geo_data.get("settlement","—"),
+        "K₀": st.session_state.geo_data.get("K0",K0),
+        "sᵤ (MPa)": st.session_state.geo_data.get("cpt_su","—"),
+    }])
+    st.write("### Geotechnical Summary")
+    st.dataframe(df)
 
-            # Overburden pressure
-            q = γ * D
-            # Ultimate capacity (kPa)
-            qu = c * Nc + q * Nq + 0.5 * γ * B * Nγ
-            # Allowable capacity (kPa)
-            qa = qu / FS
-
-            st.write("##### Bearing Capacity Results")
-            st.write(f"- **Ultimate Capacity qᵤ:** {qu:,.1f} kPa")
-            st.write(f"- **Allowable Capacity qₐ = qᵤ / FS:** {qa:,.1f} kPa (FS = {FS})")
-
-            st.markdown("##### Commentary")
-            st.markdown(
-                f"> Using Terzaghi’s method for a **{ftype} footing** (B = {B:.2f} m, D = {D:.2f} m), "
-                f"with soil γ = {γ:.1f} kN/m³, c = {c:.1f} kPa, ϕ = {ϕ:.1f}°, the calculated ultimate bearing "
-                f"capacity is **{qu:,.1f} kPa**, and the allowable capacity (FS = {FS:.1f}) is **{qa:,.1f} kPa**. "
-                "Verify settlement and deeper-layer effects in detailed design."
-            )
+    # store for SAVE
+    st.session_state.geotech_results = df
 
 
 
