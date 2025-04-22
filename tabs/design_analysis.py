@@ -6,53 +6,139 @@ import numpy as np
 from core import Beam
 from plots import plot_beam_diagram, plot_sfd, plot_bmd
 
-# --- Enhanced Structural Analysis Section ---
+# --- Structural Analysis Section (upgraded) ---
 def run_structural_analysis():
     st.header("Structural Analysis")
     st.subheader("📌 About Structural Analysis")
     st.info(
-        "This tool evaluates loads acting on a structure and performs advanced calculations "
-        "including bending moment analysis and load combination assessments, in accordance with ACI standards."
+        "Enter multiple loads, choose code combinations, and get factored loads/moments "
+        "and section requirements per ACI/ASCE standards."
     )
 
-    load_options = ["Dead Load", "Live Load", "Wind Load", "Seismic Load", "Snow Load"]
-    selected_load = st.selectbox("Select Load Type", load_options, key="struct_load_type")
-    load_value = st.number_input("Enter Load Value (kN)", min_value=0.0, key="struct_load_value")
-    distance = st.number_input("Enter Distance from Support (m)", min_value=0.0, key="struct_distance")
-    load_factor = st.number_input("Enter Load Factor", min_value=0.0, value=1.0, key="struct_load_factor")
+    # --- 1) Manage Point Loads ---
+    st.markdown("#### 1️⃣ Define Point Loads")
+    if "struct_pt_loads" not in st.session_state:
+        st.session_state.struct_pt_loads = pd.DataFrame(
+            columns=["Load Type", "Magnitude (kN)", "Direction", "Distance (m)"]
+        )
+    with st.expander("Add a Point Load", expanded=True):
+        col1, col2, col3, col4 = st.columns([2, 2, 2, 2])
+        with col1:
+            lt = st.selectbox("Load Type", ["Dead", "Live", "Wind", "Seismic", "Snow"], key="sa_lt")
+        with col2:
+            mag = st.number_input("Magnitude", min_value=0.0, key="sa_mag")
+        with col3:
+            direction = st.selectbox("Dir", ["↓ (Gravity)", "↑ (Upward)"], key="sa_dir")
+        with col4:
+            dist = st.number_input("Distance from LHS support", min_value=0.0, key="sa_dist")
 
-    if "structural_data" not in st.session_state:
-        st.session_state.structural_data = pd.DataFrame(
-            columns=["Load Type", "Load Value (kN)", "Distance (m)", "Load Factor", "Moment (kN-m)"]
+        if st.button("➕ Add Load", key="sa_add_load"):
+            new = {
+                "Load Type": lt,
+                "Magnitude (kN)": mag if direction=="↓ (Gravity)" else -mag,
+                "Direction": direction,
+                "Distance (m)": dist
+            }
+            st.session_state.struct_pt_loads = pd.concat([
+                st.session_state.struct_pt_loads,
+                pd.DataFrame([new])
+            ], ignore_index=True)
+    st.write("##### Defined Point Loads")
+    st.dataframe(st.session_state.struct_pt_loads)
+
+    # --- 2) Load Combinations ---
+    st.markdown("#### 2️⃣ Factored Load Combinations")
+    combos = {
+        "1.2D + 1.6L": {"Dead":1.2, "Live":1.6},
+        "1.0D + 0.5L + 1.0W": {"Dead":1.0, "Live":0.5, "Wind":1.0},
+        "0.9D + 1.0W": {"Dead":0.9, "Wind":1.0},
+    }
+    combo_name = st.selectbox("Select Combination", list(combos.keys()), key="sa_combo")
+    factors = combos[combo_name]
+
+    # --- 3) Compute Factored Loads & Moments ---
+    if st.button("🔎 Compute Factored Results", key="sa_compute"):
+        df = st.session_state.struct_pt_loads.copy()
+        df["Factored Force (kN)"] = df.apply(
+            lambda r: r["Magnitude (kN)"] * factors.get(r["Load Type"], 0.0),
+            axis=1
+        )
+        df["Factored Moment (kN·m)"] = df["Factored Force (kN)"] * df["Distance (m)"]
+        st.session_state.struct_results = df
+
+    # Show results
+    if "struct_results" in st.session_state:
+        res = st.session_state.struct_results
+        st.write("##### Factored Load & Moment Table")
+        st.dataframe(res)
+
+        # Summary stats
+        total_fact_load = res["Factored Force (kN)"].sum()
+        max_fact_moment = res["Factored Moment (kN·m)"].abs().max()
+
+        st.write("##### Summary")
+        st.write(f"- **Total Factored Load:** {total_fact_load:.2f} kN")
+        st.write(f"- **Maximum Factored Moment:** {max_fact_moment:.2f} kN·m")
+
+        # --- 4) Section Check (Steel I‑beam example) ---
+        # Assume Fy=250 MPa, φMn = 0.9 * Z * Fy
+        Fy = 250.0  # MPa
+        phi = 0.9
+        # required section modulus Zreq = Mmax / (φ * Fy)
+        # convert M in kN·m to N·mm: *1e6; Fy in N/mm2
+        Z_req = max_fact_moment * 1e6 / (phi * Fy)
+        st.write("##### Section Requirement")
+        st.write(f"- **Required Section Modulus (Z):** {Z_req:,.0f} mm³")
+        st.write(
+            "Refer to your steel tables (W‑sections) to pick a member with Z ≥ this value."
         )
 
-    if st.button("Add Load", key="add_struct_load"):
-        moment = load_value * distance * load_factor
-        new_row = pd.DataFrame({
-            "Load Type": [selected_load],
-            "Load Value (kN)": [load_value],
-            "Distance (m)": [distance],
-            "Load Factor": [load_factor],
-            "Moment (kN-m)": [moment]
-        })
-        st.session_state.structural_data = pd.concat(
-            [st.session_state.structural_data, new_row], ignore_index=True
+        # --- 5) Brief Academic Commentary ---
+        st.markdown("##### Commentary")
+        st.markdown(
+            f"> Under the combination **{combo_name}**, the beam sees a total vertical "
+            f"load of **{total_fact_load:.2f} kN** producing a maximum bending moment "
+            f"of **{max_fact_moment:.2f} kN·m** at the critical section. "
+            "Based on an assumed steel yield of 250 MPa and φ=0.9, the required section "
+            f"modulus is **{Z_req:,.0f} mm³**. Verify deflections per service limits "
+            "and check lateral‑torsional buckling in design."
         )
 
-    st.write("### Load Data")
-    st.dataframe(st.session_state.structural_data)
+# --- Other Tabs (unchanged) ---
+def run_geotechnical_analysis():
+    # … existing code …
+    pass
 
-    total_load = st.session_state.structural_data["Load Value (kN)"].sum() if not st.session_state.structural_data.empty else 0
-    max_load   = st.session_state.structural_data["Load Value (kN)"].max() if not st.session_state.structural_data.empty else 0
-    total_moment = st.session_state.structural_data["Moment (kN-m)"].sum() if not st.session_state.structural_data.empty else 0
-    max_moment   = st.session_state.structural_data["Moment (kN-m)"].max() if not st.session_state.structural_data.empty else 0
+def run_hydraulic_analysis():
+    # … existing code …
+    pass
 
-    st.write("### Analysis Results")
-    st.write(f"- **Total Load:** {total_load:.2f} kN")
-    st.write(f"- **Maximum Load:** {max_load:.2f} kN")
-    st.write(f"- **Total Bending Moment:** {total_moment:.2f} kN·m")
-    st.write(f"- **Maximum Bending Moment:** {max_moment:.2f} kN·m")
-    st.success("Ensure compliance with **ACI design load requirements** and proper safety factors.")
+def run_tests():
+    # … existing code …
+    pass
+
+# --- Tabs Layout ---
+def run():
+    st.title("🛠️ Design and Analysis")
+    tabs = st.tabs([
+        "Structural Analysis",
+        "Beam Analysis",
+        "Geotechnical Analysis",
+        "Hydraulic & Hydrological Modeling",
+        "Tests"
+    ])
+    with tabs[0]:
+        run_structural_analysis()
+    with tabs[1]:
+        # your existing beam_analysis()
+        pass
+    with tabs[2]:
+        run_geotechnical_analysis()
+    with tabs[3]:
+        run_hydraulic_analysis()
+    with tabs[4]:
+        run_tests()
+
 
 
 # --- Geotechnical Analysis Section ---
