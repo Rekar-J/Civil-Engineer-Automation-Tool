@@ -7,38 +7,34 @@ from core import Beam
 from plots import plot_beam_diagram, plot_sfd, plot_bmd
 
 
+# --- Structural Analysis Section (upgraded, reactive) ---
 def run_structural_analysis():
     st.header("Structural Analysis")
     st.subheader("📌 About Structural Analysis")
     st.info(
         "Enter multiple loads, choose code combinations, and get factored loads/moments "
-        "and section requirements per ACI/ASCE standards."
+        "and section requirements per ACI/ASCE standards.  Results update automatically."
     )
 
-    # 1️⃣ Define Point Loads
+    # --- 1) Manage Point Loads ---
     st.markdown("#### 1️⃣ Define Point Loads")
     if "struct_pt_loads" not in st.session_state:
         st.session_state.struct_pt_loads = pd.DataFrame(
             columns=["Load Type", "Magnitude (kN)", "Direction", "Distance (m)"]
         )
     with st.expander("Add a Point Load", expanded=True):
-        c1, c2, c3, c4 = st.columns(4)
-        with c1:
-            lt = st.selectbox("Load Type", ["Dead","Live","Wind","Seismic","Snow"], key="sa_lt")
-        with c2:
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            lt = st.selectbox("Load Type", ["Dead", "Live", "Wind", "Seismic", "Snow"], key="sa_lt")
+        with col2:
             mag = st.number_input("Magnitude (kN)", min_value=0.0, key="sa_mag")
-        with c3:
-            direction = st.selectbox("Direction", ["↓ Gravity","↑ Upward"], key="sa_dir")
-        with c4:
+        with col3:
+            direction = st.selectbox("Direction", ["↓ Gravity", "↑ Uplift"], key="sa_dir")
+        with col4:
             dist = st.number_input("Distance from LHS support (m)", min_value=0.0, key="sa_dist")
         if st.button("➕ Add Load", key="sa_add_load"):
-            signed = mag if direction=="↓ Gravity" else -mag
-            new = {
-                "Load Type": lt,
-                "Magnitude (kN)": signed,
-                "Direction": direction,
-                "Distance (m)": dist
-            }
+            val = mag if direction == "↓ Gravity" else -mag
+            new = {"Load Type": lt, "Magnitude (kN)": val, "Direction": direction, "Distance (m)": dist}
             st.session_state.struct_pt_loads = pd.concat([
                 st.session_state.struct_pt_loads,
                 pd.DataFrame([new])
@@ -47,90 +43,57 @@ def run_structural_analysis():
     st.write("##### Defined Point Loads")
     st.dataframe(st.session_state.struct_pt_loads)
 
-    # 2️⃣ Factored Load Combinations
-    st.markdown("#### 2️⃣ Select Load Combination")
+    # --- 2) Load Combinations ---
+    st.markdown("#### 2️⃣ Factored Load Combinations")
     combos = {
-        "1.2D + 1.6L": {"Dead":1.2, "Live":1.6},
-        "1.0D + 0.5L + 1.0W": {"Dead":1.0, "Live":0.5, "Wind":1.0},
-        "0.9D + 1.0W": {"Dead":0.9, "Wind":1.0},
+        "1.2D + 1.6L": {"Dead": 1.2, "Live": 1.6},
+        "1.0D + 0.5L + 1.0W": {"Dead": 1.0, "Live": 0.5, "Wind": 1.0},
+        "0.9D + 1.0W": {"Dead": 0.9, "Wind": 1.0},
     }
-    combo_name = st.selectbox("Combination", list(combos.keys()), key="sa_combo")
+    combo_name = st.selectbox("Select Combination", list(combos.keys()), key="sa_combo")
     factors = combos[combo_name]
 
-    # 3️⃣ Compute Factored Results
-    if st.button("🔎 Compute Factored Results", key="sa_compute"):
-        df = st.session_state.struct_pt_loads.copy()
+    # --- 3) Reactive Computation of Factored Results ---
+    df = st.session_state.struct_pt_loads.copy()
+    if not df.empty:
         df["Factored Force (kN)"] = df.apply(
             lambda r: r["Magnitude (kN)"] * factors.get(r["Load Type"], 0.0), axis=1
         )
         df["Factored Moment (kN·m)"] = df["Factored Force (kN)"] * df["Distance (m)"]
-        st.session_state.struct_results = df
 
-    # Display Results
-    if "struct_results" in st.session_state:
-        res = st.session_state.struct_results
         st.write("##### Factored Load & Moment Table")
-        st.dataframe(res)
+        st.dataframe(df)
 
-        total_fact_load = res["Factored Force (kN)"].sum()
-        max_fact_moment = res["Factored Moment (kN·m)"].abs().max()
-        crit_row = res.loc[res["Factored Moment (kN·m)"].abs().idxmax()]
+        total_fact_load = df["Factored Force (kN)"].sum()
+        max_fact_moment = df["Factored Moment (kN·m)"].abs().max()
+        crit_idx = df["Factored Moment (kN·m)"].abs().idxmax()
+        crit_x = df.at[crit_idx, "Distance (m)"]
 
         st.write("##### Summary")
-        st.write(f"- **Total Factored Load:** {total_fact_load:.2f} kN")
-        st.write(
-            f"- **Maximum Factored Moment:** {max_fact_moment:.2f} kN·m "
-            f"at x = {crit_row['Distance (m)']:.2f} m"
-        )
-        st.write(f"- **Largest Factored Shear:** {res['Factored Force (kN)'].abs().max():.2f} kN")
+        st.write(f"- **Total Factored Load:** {total_fact_load:.2f} kN")
+        st.write(f"- **Maximum Factored Moment:** {max_fact_moment:.2f} kN·m at x = {crit_x:.2f} m")
 
-        # 4️⃣ Section Check
-        st.markdown("#### 4️⃣ Section Check")
-        material = st.selectbox(
-            "Material", ["Steel I‑beam", "Reinforced Concrete"], key="sa_material"
-        )
+        # --- 4) Section Check (Steel I‑beam example) ---
+        Fy = 250.0  # MPa
+        φ = 0.9
+        # Zreq = Mmax (N·mm) / (φ·Fy)
+        Z_req = max_fact_moment * 1e6 / (φ * Fy)
+        st.write("##### Section Requirement (Steel)")
+        st.write(f"- **Required Section Modulus (Z):** {Z_req:,.0f} mm³")
+        st.write("Refer to W‑section tables to select Z ≥ this value.")
 
-        if material == "Steel I‑beam":
-            Fy = 250.0  # MPa
-            φ  = 0.9
-            Z_req = max_fact_moment * 1e6 / (φ * Fy)
-            st.write("##### Steel Section Modulus")
-            st.write(f"- **Required Z<sub>req</sub>:** {Z_req:,.0f} mm³")
-            st.write("Select a W‑section with Z ≥ Z<sub>req</sub>.  "
-                     "Also verify deflection, shear, and buckling per AISC.")
-
-            comment = (
-                f"Under **{combo_name}**, factored loads sum to **{total_fact_load:.2f} kN**, "
-                f"max M = **{max_fact_moment:.2f} kN·m** at **x = {crit_row['Distance (m)']:.2f} m**.  "
-                f"Z<sub>req</sub> = **{Z_req:,.0f} mm³** (φ=0.9, Fy=250 MPa)."
-            )
-
-        else:  # Reinforced Concrete
-            with st.expander("RC Section Properties", expanded=True):
-                b    = st.number_input("Width b (mm)", value=300.0, key="rc_b")
-                d    = st.number_input("Eff. depth d (mm)", value=450.0, key="rc_d")
-                fpc  = st.number_input("f'c (MPa)", value=30.0, key="rc_fc")
-                fy   = st.number_input("f_y (MPa)", value=500.0, key="rc_fy")
-                φ_rc = st.number_input("φ reduction", min_value=0.0, value=0.9, key="rc_phi")
-
-            # approximate lever arm = 0.9 d
-            M_Nmm  = max_fact_moment * 1e6
-            As_req = M_Nmm / (φ_rc * fy * 0.9 * d)
-            As_pct = As_req / (b * d) * 100
-
-            st.write("##### RC Reinforcement")
-            st.write(f"- **Required A<sub>s</sub>:** {As_req:,.0f} mm²  (~{As_pct:.2f}% )")
-            st.write("Check crack control, deflection, and shear per ACI 318.")
-
-            comment = (
-                f"Under **{combo_name}**, factored loads = **{total_fact_load:.2f} kN**, "
-                f"max M = **{max_fact_moment:.2f} kN·m** at **x = {crit_row['Distance (m)']:.2f} m**.  "
-                f"RC A<sub>s</sub> req = **{As_req:,.0f} mm²** (~{As_pct:.2f}%)."
-            )
-
-        # 5️⃣ Academic Commentary
+        # --- 5) Brief Academic Commentary ---
         st.markdown("##### Commentary")
-        st.markdown(f"> {comment}  Verify service deflections, shear capacity, and additional code checks.")
+        st.markdown(
+            f"> Under **{combo_name}**, the beam carries a total factored load of **{total_fact_load:.2f} kN**, "
+            f"producing a maximum bending moment of **{max_fact_moment:.2f} kN·m** at **x = {crit_x:.2f} m**. "
+            f"For steel (Fy = 250 MPa, φ = 0.9), required Z is **{Z_req:,.0f} mm³**. "
+            "Ensure you also check deflection limits and lateral‑torsional buckling per AISC."
+        )
+
+    else:
+        st.info("➕ Add at least one point load above to see factored results and section checks.")
+
 
 
 # --- Geotechnical Analysis Section ---
