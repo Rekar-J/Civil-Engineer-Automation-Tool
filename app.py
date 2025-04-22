@@ -1,7 +1,7 @@
 # app.py
 
 import streamlit as st
-# ── MUST be the very first Streamlit command ────────────────────────────────
+# ── MUST be the first Streamlit command ────────────────────────────────────
 st.set_page_config(page_title="Civil Engineer Automation Tool", layout="wide")
 
 import pandas as pd
@@ -16,7 +16,7 @@ import tabs.compliance_reporting as compliance_reporting
 import tabs.tools_utilities as tools_utilities
 import tabs.collaboration_documentation as collaboration_documentation
 
-# Now it’s safe to pull in anything that reads st.secrets:
+# Now safe to import anything that reads st.secrets
 from pushpull import pull_users, push_users, pull_database, push_database
 
 # ── Cookie & user management ───────────────────────────────────────────────
@@ -49,8 +49,7 @@ def pull_users_init():
     df, sha = pull_users()
     USERS_DF, USERS_SHA = ensure_columns(df), sha
 
-def load_users_local():
-    return USERS_DF.copy()
+def load_users_local(): return USERS_DF.copy()
 
 def save_users_local(df):
     global USERS_DF, USERS_SHA
@@ -233,7 +232,7 @@ def logout():
 
 # ── Main App ───────────────────────────────────────────────────────────────
 def main_app():
-    db_df, db_sha = pull_DATABASE()
+    db_df, db_sha = pull_database()
     st.session_state["db_df"], st.session_state["db_sha"] = db_df, db_sha
 
     if st.button("Logout"):
