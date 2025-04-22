@@ -135,32 +135,83 @@ def run_structural_analysis():
 
 
 
-# --- Geotechnical Analysis Section ---
+# --- Geotechnical Analysis Section (enhanced) ---
 def run_geotechnical_analysis():
     st.header("Geotechnical Analysis")
     st.subheader("📌 About Geotechnical Analysis")
-    st.info("Geotechnical analysis assesses **soil properties** to determine foundation suitability.")
+    st.info("Compute bearing capacity, earth pressures, settlement estimates, and CPT correlations.")
 
-    soil_types = ["Clay", "Sand", "Gravel", "Silt", "Rock"]
-    selected_soil = st.selectbox("Select Soil Type", soil_types)
-    density = st.number_input("Enter Density (kg/m³)", min_value=1000, max_value=2500, step=10)
-    cohesion = st.number_input("Enter Cohesion (kPa)", min_value=0, max_value=100, step=1)
+    # Soil & foundation inputs
+    soil_type = st.selectbox("Soil Type", ["Clay", "Silt", "Sand", "Gravel", "Rock"])
+    γ = st.number_input("Unit Weight γ (kN/m³)",  (soil_type=="Rock") and 21 or 18, step=0.1)
+    c = st.number_input("Cohesion c (kPa)", 0.0, step=1.0)
+    φ = st.number_input("Friction Angle φ (°)", 0.0, max_value=45.0, step=0.5)
+    # foundation
+    B = st.number_input("Foundation Width B (m)", 0.1, step=0.1)
+    Df = st.number_input("Foundation Depth Df (m)", 0.0, step=0.1)
+    FS = st.number_input("Factor of Safety", 2.0, min_value=1.0, step=0.1)
 
-    if "geotechnical_data" not in st.session_state:
-        st.session_state.geotechnical_data = pd.DataFrame(columns=["Soil Type", "Density", "Cohesion"])
+    st.markdown("---")
 
-    if st.button("Add Soil Data"):
-        new_row = pd.DataFrame({
-            "Soil Type": [selected_soil],
-            "Density": [density],
-            "Cohesion": [cohesion]
-        })
-        st.session_state.geotechnical_data = pd.concat(
-            [st.session_state.geotechnical_data, new_row], ignore_index=True
+    # Settlement inputs
+    e0 = st.number_input("Initial Void Ratio e₀", 0.5, 1.0, step=0.05)
+    mv = st.number_input("Compressibility mᵥ (m²/kN)", 1e-4, step=1e-5, format="%.5f")
+    Δσ = st.number_input("Δσ (kPa)", 50.0, step=5.0)
+    H = st.number_input("Clay Layer Thickness H (m)", 1.0, step=0.1)
+
+    st.markdown("---")
+
+    # CPT input
+    qc = st.number_input("CPT Tip Resistance qₙ (MPa)", 0.5, step=0.1)
+    σv0 = st.number_input("Overburden σ'ᵥ₀ (kPa)", γ * Df, step=5.0)
+
+    if st.button("🔎 Compute Geotech Results"):
+        # 1) Earth‑pressure coefficients
+        K0 = 1 - np.sin(np.radians(φ))
+        Ka = np.tan(np.radians(45 - φ/2))**2
+        Kp = np.tan(np.radians(45 + φ/2))**2
+
+        # 2) Terzaghi bearing capacity factors
+        φr = np.radians(φ)
+        Nq = np.exp(np.pi * np.tan(φr)) * (np.tan(np.radians(45 + φ/2)))**2
+        Nc = (Nq - 1) / np.tan(φr) if φ>0 else 5.7
+        Nγ = 2 * (Nq + 1) * np.tan(φr)
+
+        q₀ = γ * Df
+        qult = c*Nc + q₀*Nq + 0.5*γ*B*Nγ
+        qall = qult / FS
+
+        # 3) Consolidation settlement
+        s = mv * H / (1 + e0) * Δσ
+
+        # 4) CPT correlation (simplified)
+        Nkt = qc*1000 / σv0 if σv0>0 else np.nan
+
+        st.session_state.geotech_results = {
+            "K₀": K0, "Kₐ": Ka, "Kₚ": Kp,
+            "qult (kPa)": qult, f"qall (kPa) @ FS={FS}": qall,
+            "Settlement (m)": s,
+            "CPT Nkt": Nkt
+        }
+
+    # display
+    if "geotech_results" in st.session_state:
+        res = st.session_state.geotech_results
+        df = pd.DataFrame.from_dict(res, orient="index", columns=["Value"]).reset_index()
+        df.columns = ["Parameter", "Value"]
+        st.write("### Geotechnical Results")
+        st.table(df.style.format("{:.3f}"))
+
+        # academic commentary
+        st.markdown("##### Commentary")
+        st.markdown(
+            f"> For a {soil_type} layer with φ={φ:.1f}° and c={c:.1f} kPa:\n\n"
+            f"- Earth‐pressure: K₀={res['K₀']:.2f}, Ka={res['Kₐ']:.2f}, Kp={res['Kₚ']:.2f}.\n"
+            f"- Terzaghi ultimate capacity ≈ **{res['qult (kPa)']:.0f} kPa**, allowable ≈ **{res[f'qall (kPa) @ FS={FS}']:.0f} kPa**.\n"
+            f"- Estimated 1D consolidation settlement ≈ **{res['Settlement (m)']:.3f} m** under Δσ={Δσ} kPa.\n"
+            f"- CPT correlation index Nkt ≈ **{res['CPT Nkt']:.2f}**."
         )
 
-    st.write("### Soil Data")
-    st.dataframe(st.session_state.geotechnical_data)
 
 
 
