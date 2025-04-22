@@ -133,32 +133,103 @@ def run_structural_analysis():
         st.markdown(f"> {comment}  Verify service deflections, shear capacity, and additional code checks.")
 
 
-# --- Geotechnical Analysis Section ---
+
+# --- Geotechnical Analysis Section (upgraded) ---
 def run_geotechnical_analysis():
     st.header("Geotechnical Analysis")
     st.subheader("📌 About Geotechnical Analysis")
-    st.info("Geotechnical analysis assesses **soil properties** to determine foundation suitability.")
+    st.info(
+        "Define soil layers, enter foundation parameters, and compute ultimate & allowable "
+        "bearing capacity per Terzaghi’s method."
+    )
 
-    soil_types = ["Clay", "Sand", "Gravel", "Silt", "Rock"]
-    selected_soil = st.selectbox("Select Soil Type", soil_types)
-    density = st.number_input("Enter Density (kg/m³)", min_value=1000, max_value=2500, step=10)
-    cohesion = st.number_input("Enter Cohesion (kPa)", min_value=0, max_value=100, step=1)
-
-    if "geotechnical_data" not in st.session_state:
-        st.session_state.geotechnical_data = pd.DataFrame(columns=["Soil Type", "Density", "Cohesion"])
-
-    if st.button("Add Soil Data"):
-        new_row = pd.DataFrame({
-            "Soil Type": [selected_soil],
-            "Density": [density],
-            "Cohesion": [cohesion]
-        })
-        st.session_state.geotechnical_data = pd.concat(
-            [st.session_state.geotechnical_data, new_row], ignore_index=True
+    # --- 1) Soil Layer Inputs ---
+    st.markdown("#### 1️⃣ Define Soil Layers")
+    if "geo_layers" not in st.session_state:
+        st.session_state.geo_layers = pd.DataFrame(
+            columns=["Soil Type", "Unit Weight γ (kN/m³)", "Cohesion c (kPa)", "ϕ (°)", "Thickness H (m)"]
         )
+    with st.expander("Add a Soil Layer", expanded=True):
+        col1, col2, col3, col4, col5 = st.columns([2,2,2,2,2])
+        with col1:
+            soil = st.selectbox("Soil Type", ["Clay", "Sand", "Gravel", "Silt", "Rock"], key="geo_type")
+        with col2:
+            gamma = st.number_input("γ (kN/m³)", min_value=8.0, max_value=22.0, value=18.0, key="geo_gamma")
+        with col3:
+            c = st.number_input("c (kPa)", min_value=0.0, max_value=200.0, value=0.0, key="geo_c")
+        with col4:
+            phi = st.number_input("ϕ (°)", min_value=0.0, max_value=45.0, value=30.0, key="geo_phi")
+        with col5:
+            H = st.number_input("Layer H (m)", min_value=0.1, value=1.0, key="geo_H")
+        if st.button("➕ Add Layer", key="geo_add"):
+            new = {
+                "Soil Type": soil,
+                "Unit Weight γ (kN/m³)": gamma,
+                "Cohesion c (kPa)": c,
+                "ϕ (°)": phi,
+                "Thickness H (m)": H
+            }
+            st.session_state.geo_layers = pd.concat([
+                st.session_state.geo_layers,
+                pd.DataFrame([new])
+            ], ignore_index=True)
 
-    st.write("### Soil Data")
-    st.dataframe(st.session_state.geotechnical_data)
+    # Show layers
+    st.write("##### Defined Soil Layers")
+    st.dataframe(st.session_state.geo_layers)
+
+    # --- 2) Foundation Parameters ---
+    st.markdown("#### 2️⃣ Foundation Parameters")
+    fcol1, fcol2, fcol3, fcol4 = st.columns(4)
+    with fcol1:
+        ftype = st.selectbox("Foundation Type", ["Strip", "Square", "Circular"], key="geo_ftype")
+    with fcol2:
+        B = st.number_input("Width B (m)", min_value=0.1, value=1.0, key="geo_B")
+    with fcol3:
+        D = st.number_input("Embedment Depth D (m)", min_value=0.0, value=1.0, key="geo_D")
+    with fcol4:
+        FS = st.number_input("Factor of Safety", min_value=1.5, value=3.0, key="geo_FS")
+
+    # --- 3) Terzaghi Bearing Capacity ---
+    if st.button("🔎 Compute Bearing Capacity", key="geo_compute"):
+        if st.session_state.geo_layers.empty:
+            st.error("Add at least one soil layer above.")
+        else:
+            # For Terzaghi we use top layer soil properties
+            top = st.session_state.geo_layers.iloc[0]
+            γ = top["Unit Weight γ (kN/m³)"]
+            c = top["Cohesion c (kPa)"]
+            ϕ = top["ϕ (°)"]
+            ϕr = np.radians(ϕ)
+
+            # Compute bearing factors
+            if ϕ > 0:
+                Nq = np.exp(np.pi * np.tan(ϕr)) * (np.tan(np.radians(45) + ϕr/2)**2)
+                Nc = (Nq - 1.0) / np.tan(ϕr)
+                Nγ = 2.0 * (Nq + 1.0) * np.tan(ϕr)
+            else:
+                # φ = 0 (clay) typical values
+                Nq, Nc, Nγ = 1.0, 5.14, 0.0
+
+            # Overburden pressure
+            q = γ * D
+            # Ultimate capacity (kPa)
+            qu = c * Nc + q * Nq + 0.5 * γ * B * Nγ
+            # Allowable capacity (kPa)
+            qa = qu / FS
+
+            st.write("##### Bearing Capacity Results")
+            st.write(f"- **Ultimate Capacity qᵤ:** {qu:,.1f} kPa")
+            st.write(f"- **Allowable Capacity qₐ = qᵤ / FS:** {qa:,.1f} kPa (FS = {FS})")
+
+            st.markdown("##### Commentary")
+            st.markdown(
+                f"> Using Terzaghi’s method for a **{ftype} footing** (B = {B:.2f} m, D = {D:.2f} m), "
+                f"with soil γ = {γ:.1f} kN/m³, c = {c:.1f} kPa, ϕ = {ϕ:.1f}°, the calculated ultimate bearing "
+                f"capacity is **{qu:,.1f} kPa**, and the allowable capacity (FS = {FS:.1f}) is **{qa:,.1f} kPa**. "
+                "Verify settlement and deeper-layer effects in detailed design."
+            )
+
 
 
 # --- Hydraulic and Hydrological Modeling Section ---
