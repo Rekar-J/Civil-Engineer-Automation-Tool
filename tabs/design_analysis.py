@@ -136,7 +136,7 @@ def run_structural_analysis():
 
 
 
-# --- Geotechnical Analysis Section (enhanced, ASCII only) ---
+# --- Geotechnical Analysis Section (ASCII‑only) ---
 def run_geotechnical_analysis():
     st.header("Geotechnical Analysis")
     st.subheader("📌 About Geotechnical Analysis")
@@ -178,10 +178,10 @@ def run_geotechnical_analysis():
                                step=5.0, key="geo_sigma_v0")
 
     if st.button("🔎 Compute Geotech Results", key="geo_compute"):
-        # Earth-pressure coefficients
-        K0  = 1 - np.sin(np.radians(phi))
-        Ka  = np.tan(np.radians(45 - phi/2))**2
-        Kp  = np.tan(np.radians(45 + phi/2))**2
+        # Earth‑pressure coefficients
+        K0 = 1 - np.sin(np.radians(phi))
+        Ka = np.tan(np.radians(45 - phi/2))**2
+        Kp = np.tan(np.radians(45 + phi/2))**2
 
         # Terzaghi bearing factors
         phi_rad = np.radians(phi)
@@ -221,14 +221,14 @@ def run_geotechnical_analysis():
 
         st.markdown("##### Commentary")
         st.markdown(
-            f"> Soil: **{soil_type}**, φ={phi:.1f}°, c={cohesion:.1f} kPa\n\n"
-            f"- K₀={K0:.2f}, Kₐ={Ka:.2f}, Kₚ={Kp:.2f}\n"
-            f"- Terzaghi qult ≈ **{qult:.0f} kPa**, qall ≈ **{qall:.0f} kPa**\n"
-            f"- Settlement ≈ **{s:.3f} m** under Δσ={delta_sigma} kPa\n"
+            f"> Soil: **{soil_type}**, φ={phi:.1f}°, c={cohesion:.1f} kPa  \n"
+            f"- K0={K0:.2f}, Ka={Ka:.2f}, Kp={Kp:.2f}  \n"
+            f"- Terzaghi qult ≈ **{qult:.0f} kPa**, qall ≈ **{qall:.0f} kPa**  \n"
+            f"- Settlement ≈ **{s:.3f} m** under Δσ={delta_sigma} kPa  \n"
             f"- CPT index Nkt ≈ **{Nkt:.2f}**"
         )
 
-# … rest of your tabs/design_analysis.py unchanged …
+
 
 
 
