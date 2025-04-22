@@ -135,82 +135,100 @@ def run_structural_analysis():
 
 
 
-# --- Geotechnical Analysis Section (enhanced) ---
+
+# --- Geotechnical Analysis Section (enhanced, ASCII only) ---
 def run_geotechnical_analysis():
     st.header("Geotechnical Analysis")
     st.subheader("📌 About Geotechnical Analysis")
-    st.info("Compute bearing capacity, earth pressures, settlement estimates, and CPT correlations.")
+    st.info("Compute bearing capacity, earth pressures, settlement and CPT correlations.")
 
-    # Soil & foundation inputs
+    # 1) Soil & foundation inputs
     soil_type = st.selectbox("Soil Type", ["Clay", "Silt", "Sand", "Gravel", "Rock"])
-    γ = st.number_input("Unit Weight γ (kN/m³)",  (soil_type=="Rock") and 21 or 18, step=0.1)
-    c = st.number_input("Cohesion c (kPa)", 0.0, step=1.0)
-    φ = st.number_input("Friction Angle φ (°)", 0.0, max_value=45.0, step=0.5)
-    # foundation
-    B = st.number_input("Foundation Width B (m)", 0.1, step=0.1)
-    Df = st.number_input("Foundation Depth Df (m)", 0.0, step=0.1)
-    FS = st.number_input("Factor of Safety", 2.0, min_value=1.0, step=0.1)
+    gamma = st.number_input("Unit Weight γ (kN/m³)",
+                            value=(21.0 if soil_type=="Rock" else 18.0),
+                            step=0.1, key="geo_gamma")
+    cohesion = st.number_input("Cohesion c (kPa)", min_value=0.0, step=1.0, key="geo_c")
+    phi = st.number_input("Friction Angle φ (°)", min_value=0.0, max_value=45.0,
+                          step=0.5, key="geo_phi")
+
+    B = st.number_input("Foundation Width B (m)", min_value=0.1, step=0.1, key="geo_B")
+    Df = st.number_input("Foundation Depth Df (m)", min_value=0.0,
+                         step=0.1, key="geo_Df")
+    FS = st.number_input("Factor of Safety", value=2.0, min_value=1.0,
+                         step=0.1, key="geo_FS")
 
     st.markdown("---")
 
-    # Settlement inputs
-    e0 = st.number_input("Initial Void Ratio e₀", 0.5, 1.0, step=0.05)
-    mv = st.number_input("Compressibility mᵥ (m²/kN)", 1e-4, step=1e-5, format="%.5f")
-    Δσ = st.number_input("Δσ (kPa)", 50.0, step=5.0)
-    H = st.number_input("Clay Layer Thickness H (m)", 1.0, step=0.1)
+    # 2) Settlement inputs
+    e0 = st.number_input("Initial Void Ratio e0", min_value=0.5, max_value=1.0,
+                         value=0.8, step=0.05, key="geo_e0")
+    mv = st.number_input("Compressibility mv (m²/kN)", min_value=1e-5,
+                         value=1e-4, step=1e-5, format="%.5f", key="geo_mv")
+    delta_sigma = st.number_input("Δσ (kPa)", value=50.0, step=5.0,
+                                  key="geo_dsigma")
+    H = st.number_input("Clay Layer Thickness H (m)", value=1.0,
+                        step=0.1, key="geo_H")
 
     st.markdown("---")
 
-    # CPT input
-    qc = st.number_input("CPT Tip Resistance qₙ (MPa)", 0.5, step=0.1)
-    σv0 = st.number_input("Overburden σ'ᵥ₀ (kPa)", γ * Df, step=5.0)
+    # 3) CPT input
+    qc = st.number_input("CPT Tip Resistance qc (MPa)", min_value=0.0,
+                         value=0.5, step=0.1, key="geo_qc")
+    sigma_v0 = st.number_input("Overburden σ'v0 (kPa)", value=gamma*Df,
+                               step=5.0, key="geo_sigma_v0")
 
-    if st.button("🔎 Compute Geotech Results"):
-        # 1) Earth‑pressure coefficients
-        K0 = 1 - np.sin(np.radians(φ))
-        Ka = np.tan(np.radians(45 - φ/2))**2
-        Kp = np.tan(np.radians(45 + φ/2))**2
+    if st.button("🔎 Compute Geotech Results", key="geo_compute"):
+        # Earth-pressure coefficients
+        K0  = 1 - np.sin(np.radians(phi))
+        Ka  = np.tan(np.radians(45 - phi/2))**2
+        Kp  = np.tan(np.radians(45 + phi/2))**2
 
-        # 2) Terzaghi bearing capacity factors
-        φr = np.radians(φ)
-        Nq = np.exp(np.pi * np.tan(φr)) * (np.tan(np.radians(45 + φ/2)))**2
-        Nc = (Nq - 1) / np.tan(φr) if φ>0 else 5.7
-        Nγ = 2 * (Nq + 1) * np.tan(φr)
+        # Terzaghi bearing factors
+        phi_rad = np.radians(phi)
+        Nq = np.exp(np.pi * np.tan(phi_rad)) * (np.tan(np.radians(45 + phi/2)))**2
+        Nc = (Nq - 1) / np.tan(phi_rad) if phi>0 else 5.7
+        Ngamma = 2 * (Nq + 1) * np.tan(phi_rad)
 
-        q₀ = γ * Df
-        qult = c*Nc + q₀*Nq + 0.5*γ*B*Nγ
+        q0 = gamma * Df
+        qult = cohesion * Nc + q0 * Nq + 0.5 * gamma * B * Ngamma
         qall = qult / FS
 
-        # 3) Consolidation settlement
-        s = mv * H / (1 + e0) * Δσ
+        # Consolidation settlement
+        s = mv * H / (1 + e0) * delta_sigma
 
-        # 4) CPT correlation (simplified)
-        Nkt = qc*1000 / σv0 if σv0>0 else np.nan
+        # CPT correlation index
+        Nkt = (qc * 1e3) / sigma_v0 if sigma_v0>0 else np.nan
 
         st.session_state.geotech_results = {
-            "K₀": K0, "Kₐ": Ka, "Kₚ": Kp,
-            "qult (kPa)": qult, f"qall (kPa) @ FS={FS}": qall,
+            "K0": K0,
+            "Ka": Ka,
+            "Kp": Kp,
+            "qult (kPa)": qult,
+            f"qall (kPa) @ FS={FS}": qall,
             "Settlement (m)": s,
             "CPT Nkt": Nkt
         }
 
-    # display
+    # Display results
     if "geotech_results" in st.session_state:
-        res = st.session_state.geotech_results
-        df = pd.DataFrame.from_dict(res, orient="index", columns=["Value"]).reset_index()
-        df.columns = ["Parameter", "Value"]
-        st.write("### Geotechnical Results")
-        st.table(df.style.format("{:.3f}"))
+        df_res = pd.DataFrame.from_dict(
+            st.session_state.geotech_results, orient="index", columns=["Value"]
+        ).reset_index()
+        df_res.columns = ["Parameter", "Value"]
 
-        # academic commentary
+        st.write("### Geotechnical Results")
+        st.table(df_res.style.format("{:.3f}"))
+
         st.markdown("##### Commentary")
         st.markdown(
-            f"> For a {soil_type} layer with φ={φ:.1f}° and c={c:.1f} kPa:\n\n"
-            f"- Earth‐pressure: K₀={res['K₀']:.2f}, Ka={res['Kₐ']:.2f}, Kp={res['Kₚ']:.2f}.\n"
-            f"- Terzaghi ultimate capacity ≈ **{res['qult (kPa)']:.0f} kPa**, allowable ≈ **{res[f'qall (kPa) @ FS={FS}']:.0f} kPa**.\n"
-            f"- Estimated 1D consolidation settlement ≈ **{res['Settlement (m)']:.3f} m** under Δσ={Δσ} kPa.\n"
-            f"- CPT correlation index Nkt ≈ **{res['CPT Nkt']:.2f}**."
+            f"> Soil: **{soil_type}**, φ={phi:.1f}°, c={cohesion:.1f} kPa\n\n"
+            f"- K₀={K0:.2f}, Kₐ={Ka:.2f}, Kₚ={Kp:.2f}\n"
+            f"- Terzaghi qult ≈ **{qult:.0f} kPa**, qall ≈ **{qall:.0f} kPa**\n"
+            f"- Settlement ≈ **{s:.3f} m** under Δσ={delta_sigma} kPa\n"
+            f"- CPT index Nkt ≈ **{Nkt:.2f}**"
         )
+
+# … rest of your tabs/design_analysis.py unchanged …
 
 
 
