@@ -135,120 +135,55 @@ def run_tests():
                     st.error("❌ Poor Water Quality")
 
 
-
 # --- Beam Analysis Sub‑Tab ---
 def run_beam_analysis():
     st.header("Beam Analysis")
-    st.info("Analyze simply supported beams with point loads and UDLs.")
+    st.info("Analyze simply supported beams—choose load directions, see dimensions & get an academic summary.")
 
-    # Beam length
-    length = st.number_input(
-        "Beam Length (m)",
-        min_value=0.1,
-        value=5.0,
-        help="Total span of the beam measured from the left end.",
-        key="beam_len"
-    )
+    st.write("**Note:** All distances measured from the **left end** (x = 0).")
+    show_dims = st.checkbox("Show dimension lines", value=True)
+
+    # Beam geometry
+    length = st.number_input("Beam Length (m)", min_value=0.1, value=5.0, key="beam_len")
 
     # Supports
-    st.write("#### Supports")
+    st.write("#### Supports (2)")
     supports = []
     for i in range(2):
         pos = st.number_input(
-            f"Support #{i+1} Position (m)",
-            min_value=0.0,
-            max_value=length,
-            value=(0.0 if i == 0 else length),
-            help="Distance from the left end.",
-            key=f"beam_sup_pos_{i}"
+            f"Support #{i+1} Position (m)", min_value=0.0, max_value=length,
+            value=(0.0 if i==0 else length), key=f"beam_sup_pos_{i}"
         )
         sup_type = st.selectbox(
-            f"Support #{i+1} Type",
-            ["pin", "roller"],
-            help="Pin: no moment, Roller: allows horizontal movement.",
-            key=f"beam_sup_type_{i}"
+            f"Support #{i+1} Type", ["pin","roller"], key=f"beam_sup_type_{i}"
         )
-        supports.append({"pos": pos, "type": sup_type})
+        supports.append({"pos":pos, "type":sup_type})
 
-    # Point loads
+    # Point loads (unlimited)
     st.write("#### Point Loads")
+    n_pl = st.number_input("How many point loads?", min_value=0, value=0, step=1, key="beam_pl_num")
     point_loads = []
-    n_pl = st.number_input(
-        "How many point loads?",
-        min_value=0,
-        value=0,
-        step=1,
-        help="Number of concentrated loads on the beam.",
-        key="beam_pl_num"
-    )
     for i in range(int(n_pl)):
-        st.markdown(f"**Load #{i+1}**")
-        pos = st.number_input(
-            f"Position (m)",
-            min_value=0.0,
-            max_value=length,
-            value=length/2,
-            help="Distance from the left end where load is applied.",
-            key=f"beam_pl_pos_{i}"
-        )
-        mag = st.number_input(
-            f"Magnitude (kN)",
-            value=10.0,
-            help="Positive magnitude of the load.",
-            key=f"beam_pl_mag_{i}"
-        )
-        direction = st.selectbox(
-            f"Direction",
-            ["Downward", "Upward"],
-            help="Downward loads cause negative bending on top fibers.",
-            key=f"beam_pl_dir_{i}"
-        )
-        mag_signed = mag if direction == "Downward" else -mag
-        point_loads.append({"pos": pos, "mag": mag_signed})
+        pos = st.number_input(f"Load #{i+1} Position (m)", min_value=0.0, max_value=length,
+                               value=length/2, key=f"beam_pl_pos_{i}")
+        mag = st.number_input(f"Load #{i+1} Magnitude (kN)", value=10.0, key=f"beam_pl_mag_{i}")
+        direction = st.selectbox(f"Load #{i+1} Direction", ["Downward","Upward"], key=f"beam_pl_dir_{i}")
+        sign = 1 if direction=="Upward" else -1
+        point_loads.append({"pos":pos, "mag":mag * sign})
 
-    # UDLs
-    st.write("#### Uniformly Distributed Loads (UDLs)")
+    # Uniformly distributed loads (unlimited)
+    st.write("#### Uniformly Distributed Loads")
+    n_udl = st.number_input("How many UDLs?", min_value=0, value=0, step=1, key="beam_udl_num")
     udls = []
-    n_udl = st.number_input(
-        "How many UDLs?",
-        min_value=0,
-        value=0,
-        step=1,
-        help="Number of uniform distributed loads.",
-        key="beam_udl_num"
-    )
     for i in range(int(n_udl)):
-        st.markdown(f"**UDL #{i+1}**")
-        start = st.number_input(
-            f"Start (m)",
-            min_value=0.0,
-            max_value=length,
-            value=0.0,
-            help="Distance from left end where UDL begins.",
-            key=f"beam_udl_start_{i}"
-        )
-        end = st.number_input(
-            f"End (m)",
-            min_value=0.0,
-            max_value=length,
-            value=length,
-            help="Distance from left end where UDL ends.",
-            key=f"beam_udl_end_{i}"
-        )
-        intensity = st.number_input(
-            f"Intensity (kN/m)",
-            value=5.0,
-            help="Load intensity per meter.",
-            key=f"beam_udl_int_{i}"
-        )
-        direction = st.selectbox(
-            f"Direction",
-            ["Downward", "Upward"],
-            help="Choose load direction.",
-            key=f"beam_udl_dir_{i}"
-        )
-        intensity_signed = intensity if direction == "Downward" else -intensity
-        udls.append({"start": start, "end": end, "int": intensity_signed})
+        start = st.number_input(f"UDL #{i+1} Start (m)", min_value=0.0, max_value=length,
+                                 value=0.0, key=f"beam_udl_start_{i}")
+        end   = st.number_input(f"UDL #{i+1} End (m)",   min_value=0.0, max_value=length,
+                                 value=length, key=f"beam_udl_end_{i}")
+        intensity = st.number_input(f"UDL #{i+1} Intensity (kN/m)", value=5.0, key=f"beam_udl_int_{i}")
+        direction = st.selectbox(f"UDL #{i+1} Direction", ["Downward","Upward"], key=f"beam_udl_dir_{i}")
+        sign = 1 if direction=="Upward" else -1
+        udls.append({"start":start, "end":end, "int":intensity * sign})
 
     # Build & solve
     beam = Beam(length)
@@ -261,42 +196,49 @@ def run_beam_analysis():
 
     if st.button("🔎 Analyze Beam", key="analyze_beam"):
         beam.analyze()
+        reactions = beam.reactions
 
-        # Reactions
+        xs = np.linspace(0, beam.length, 500)
+        Vs = np.array([beam.shear_at(x) for x in xs])
+        Ms = np.array([beam.moment_at(x) for x in xs])
+
+        # Critical values
+        idx_v = np.argmax(np.abs(Vs))
+        Vmax, x_vmax = Vs[idx_v], xs[idx_v]
+        zero_idxs = np.where(Vs[:-1]*Vs[1:]<0)[0]
+        if zero_idxs.size>0:
+            i0 = zero_idxs[0]
+            x0 = xs[i0] - Vs[i0]*(xs[i0+1]-xs[i0])/(Vs[i0+1]-Vs[i0])
+        else:
+            x0 = xs[np.argmax(np.abs(Ms))]
+        idx_m = np.argmax(np.abs(Ms))
+        Mmax, x_mmax = Ms[idx_m], xs[idx_m]
+
+        # Output
         st.write("#### Support Reactions")
-        for i, R in enumerate(beam.reactions):
-            pos = supports[i]["pos"]
-            st.write(f"> Support #{i+1} at **{pos:.2f} m** → **{R:.2f} kN**")
-
-        # Diagrams
-        xs = np.linspace(0, beam.length, 200)
-        Vs = [beam.shear_at(x) for x in xs]
-        Ms = [beam.moment_at(x) for x in xs]
+        for i,R in enumerate(reactions):
+            st.write(f"> Support #{i+1} at x = {supports[i]['pos']:.2f} m → **{R:.2f} kN**")
 
         st.write("#### Beam Schematic")
-        st.pyplot(plot_beam_diagram(beam))
+        st.pyplot(plot_beam_diagram(beam, show_dimensions=show_dims))
+
         st.write("#### Shear Force Diagram")
         st.pyplot(plot_sfd(beam))
+
         st.write("#### Bending Moment Diagram")
         st.pyplot(plot_bmd(beam))
 
-        # Analysis Summary
-        idx_M = int(np.argmax(np.abs(Ms)))
-        x_M = xs[idx_M]
-        M_max = Ms[idx_M]
-        idx_V = int(np.argmax(np.abs(Vs)))
-        x_V = xs[idx_V]
-        V_max = Vs[idx_V]
-        summary = (
-            f"➤ The maximum bending moment of **{M_max:.2f} kN·m** occurs at **x = {x_M:.2f} m**, "
-            "critical for section design.  \n"
-            f"➤ The peak shear force of **{V_max:.2f} kN** is at **x = {x_V:.2f} m**, "
-            "ensure adequate shear reinforcement."
-        )
-        st.markdown("#### Analysis Summary")
-        st.write(summary)
+        st.markdown(f"""
+**Academic Summary:**  
+- **Reactions** at x=0: {reactions[0]:.2f} kN, at x={length:.2f} m: {reactions[1]:.2f} kN  
+- **Max Shear** |V|ₘₐₓ = {abs(Vmax):.2f} kN at x = {x_vmax:.2f} m  
+- **Shear zero‐crossing** at x ≃ {x0:.2f} m → location of peak M  
+- **Max Moment** |M|ₘₐₓ = {abs(Mmax):.2f} kN·m at x = {x_mmax:.2f} m  
 
-# --- Combine all Design & Analysis tools ---
+Use these critical points for detailed design and reinforcement checks.
+""")
+
+# --- Combined Tabs for Design & Analysis ---
 def run():
     st.title("🛠️ Design and Analysis")
     tabs = st.tabs([
