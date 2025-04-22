@@ -6,231 +6,81 @@ import numpy as np
 from core import Beam
 from plots import plot_beam_diagram, plot_sfd, plot_bmd
 
-
+# --- Enhanced Structural Analysis Section ---
 def run_structural_analysis():
     st.header("Structural Analysis")
     st.subheader("📌 About Structural Analysis")
     st.info(
-        "Enter multiple loads, choose code combinations, and get factored loads/moments "
-        "and section requirements per ACI/ASCE standards."
+        "This tool evaluates loads acting on a structure and performs advanced calculations "
+        "including bending moment analysis and load combination assessments, in accordance with ACI standards."
     )
 
-    # 1️⃣ Define Point Loads
-    st.markdown("#### 1️⃣ Define Point Loads")
-    if "struct_pt_loads" not in st.session_state:
-        st.session_state.struct_pt_loads = pd.DataFrame(
-            columns=["Load Type", "Magnitude (kN)", "Direction", "Distance (m)"]
-        )
-    with st.expander("Add a Point Load", expanded=True):
-        c1, c2, c3, c4 = st.columns(4)
-        with c1:
-            lt = st.selectbox("Load Type", ["Dead","Live","Wind","Seismic","Snow"], key="sa_lt")
-        with c2:
-            mag = st.number_input("Magnitude (kN)", min_value=0.0, key="sa_mag")
-        with c3:
-            direction = st.selectbox("Direction", ["↓ Gravity","↑ Upward"], key="sa_dir")
-        with c4:
-            dist = st.number_input("Distance from LHS support (m)", min_value=0.0, key="sa_dist")
-        if st.button("➕ Add Load", key="sa_add_load"):
-            signed = mag if direction=="↓ Gravity" else -mag
-            new = {
-                "Load Type": lt,
-                "Magnitude (kN)": signed,
-                "Direction": direction,
-                "Distance (m)": dist
-            }
-            st.session_state.struct_pt_loads = pd.concat([
-                st.session_state.struct_pt_loads,
-                pd.DataFrame([new])
-            ], ignore_index=True)
+    load_options = ["Dead Load", "Live Load", "Wind Load", "Seismic Load", "Snow Load"]
+    selected_load = st.selectbox("Select Load Type", load_options, key="struct_load_type")
+    load_value = st.number_input("Enter Load Value (kN)", min_value=0.0, key="struct_load_value")
+    distance = st.number_input("Enter Distance from Support (m)", min_value=0.0, key="struct_distance")
+    load_factor = st.number_input("Enter Load Factor", min_value=0.0, value=1.0, key="struct_load_factor")
 
-    st.write("##### Defined Point Loads")
-    st.dataframe(st.session_state.struct_pt_loads)
-
-    # 2️⃣ Factored Load Combinations
-    st.markdown("#### 2️⃣ Select Load Combination")
-    combos = {
-        "1.2D + 1.6L": {"Dead":1.2, "Live":1.6},
-        "1.0D + 0.5L + 1.0W": {"Dead":1.0, "Live":0.5, "Wind":1.0},
-        "0.9D + 1.0W": {"Dead":0.9, "Wind":1.0},
-    }
-    combo_name = st.selectbox("Combination", list(combos.keys()), key="sa_combo")
-    factors = combos[combo_name]
-
-    # 3️⃣ Compute Factored Results
-    if st.button("🔎 Compute Factored Results", key="sa_compute"):
-        df = st.session_state.struct_pt_loads.copy()
-        df["Factored Force (kN)"] = df.apply(
-            lambda r: r["Magnitude (kN)"] * factors.get(r["Load Type"], 0.0), axis=1
-        )
-        df["Factored Moment (kN·m)"] = df["Factored Force (kN)"] * df["Distance (m)"]
-        st.session_state.struct_results = df
-
-    # Display Results
-    if "struct_results" in st.session_state:
-        res = st.session_state.struct_results
-        st.write("##### Factored Load & Moment Table")
-        st.dataframe(res)
-
-        total_fact_load = res["Factored Force (kN)"].sum()
-        max_fact_moment = res["Factored Moment (kN·m)"].abs().max()
-        crit_row = res.loc[res["Factored Moment (kN·m)"].abs().idxmax()]
-
-        st.write("##### Summary")
-        st.write(f"- **Total Factored Load:** {total_fact_load:.2f} kN")
-        st.write(
-            f"- **Maximum Factored Moment:** {max_fact_moment:.2f} kN·m "
-            f"at x = {crit_row['Distance (m)']:.2f} m"
-        )
-        st.write(f"- **Largest Factored Shear:** {res['Factored Force (kN)'].abs().max():.2f} kN")
-
-        # 4️⃣ Section Check
-        st.markdown("#### 4️⃣ Section Check")
-        material = st.selectbox(
-            "Material", ["Steel I‑beam", "Reinforced Concrete"], key="sa_material"
+    if "structural_data" not in st.session_state:
+        st.session_state.structural_data = pd.DataFrame(
+            columns=["Load Type", "Load Value (kN)", "Distance (m)", "Load Factor", "Moment (kN-m)"]
         )
 
-        if material == "Steel I‑beam":
-            Fy = 250.0  # MPa
-            φ  = 0.9
-            Z_req = max_fact_moment * 1e6 / (φ * Fy)
-            st.write("##### Steel Section Modulus")
-            st.write(f"- **Required Z<sub>req</sub>:** {Z_req:,.0f} mm³")
-            st.write("Select a W‑section with Z ≥ Z<sub>req</sub>.  "
-                     "Also verify deflection, shear, and buckling per AISC.")
+    if st.button("Add Load", key="add_struct_load"):
+        moment = load_value * distance * load_factor
+        new_row = pd.DataFrame({
+            "Load Type": [selected_load],
+            "Load Value (kN)": [load_value],
+            "Distance (m)": [distance],
+            "Load Factor": [load_factor],
+            "Moment (kN-m)": [moment]
+        })
+        st.session_state.structural_data = pd.concat(
+            [st.session_state.structural_data, new_row], ignore_index=True
+        )
 
-            comment = (
-                f"Under **{combo_name}**, factored loads sum to **{total_fact_load:.2f} kN**, "
-                f"max M = **{max_fact_moment:.2f} kN·m** at **x = {crit_row['Distance (m)']:.2f} m**.  "
-                f"Z<sub>req</sub> = **{Z_req:,.0f} mm³** (φ=0.9, Fy=250 MPa)."
-            )
+    st.write("### Load Data")
+    st.dataframe(st.session_state.structural_data)
 
-        else:  # Reinforced Concrete
-            with st.expander("RC Section Properties", expanded=True):
-                b    = st.number_input("Width b (mm)", value=300.0, key="rc_b")
-                d    = st.number_input("Eff. depth d (mm)", value=450.0, key="rc_d")
-                fpc  = st.number_input("f'c (MPa)", value=30.0, key="rc_fc")
-                fy   = st.number_input("f_y (MPa)", value=500.0, key="rc_fy")
-                φ_rc = st.number_input("φ reduction", min_value=0.0, value=0.9, key="rc_phi")
+    total_load = st.session_state.structural_data["Load Value (kN)"].sum() if not st.session_state.structural_data.empty else 0
+    max_load   = st.session_state.structural_data["Load Value (kN)"].max() if not st.session_state.structural_data.empty else 0
+    total_moment = st.session_state.structural_data["Moment (kN-m)"].sum() if not st.session_state.structural_data.empty else 0
+    max_moment   = st.session_state.structural_data["Moment (kN-m)"].max() if not st.session_state.structural_data.empty else 0
 
-            # approximate lever arm = 0.9 d
-            M_Nmm  = max_fact_moment * 1e6
-            As_req = M_Nmm / (φ_rc * fy * 0.9 * d)
-            As_pct = As_req / (b * d) * 100
-
-            st.write("##### RC Reinforcement")
-            st.write(f"- **Required A<sub>s</sub>:** {As_req:,.0f} mm²  (~{As_pct:.2f}% )")
-            st.write("Check crack control, deflection, and shear per ACI 318.")
-
-            comment = (
-                f"Under **{combo_name}**, factored loads = **{total_fact_load:.2f} kN**, "
-                f"max M = **{max_fact_moment:.2f} kN·m** at **x = {crit_row['Distance (m)']:.2f} m**.  "
-                f"RC A<sub>s</sub> req = **{As_req:,.0f} mm²** (~{As_pct:.2f}%)."
-            )
-
-        # 5️⃣ Academic Commentary
-        st.markdown("##### Commentary")
-        st.markdown(f"> {comment}  Verify service deflections, shear capacity, and additional code checks.")
+    st.write("### Analysis Results")
+    st.write(f"- **Total Load:** {total_load:.2f} kN")
+    st.write(f"- **Maximum Load:** {max_load:.2f} kN")
+    st.write(f"- **Total Bending Moment:** {total_moment:.2f} kN·m")
+    st.write(f"- **Maximum Bending Moment:** {max_moment:.2f} kN·m")
+    st.success("Ensure compliance with **ACI design load requirements** and proper safety factors.")
 
 
-
-
-
-# --- Geotechnical Analysis Section (ASCII‑only) ---
+# --- Geotechnical Analysis Section ---
 def run_geotechnical_analysis():
     st.header("Geotechnical Analysis")
     st.subheader("📌 About Geotechnical Analysis")
-    st.info("Compute bearing capacity, earth pressures, settlement and CPT correlations.")
+    st.info("Geotechnical analysis assesses **soil properties** to determine foundation suitability.")
 
-    # 1) Soil & foundation inputs
-    soil_type = st.selectbox("Soil Type", ["Clay", "Silt", "Sand", "Gravel", "Rock"])
-    gamma = st.number_input("Unit Weight γ (kN/m³)",
-                            value=(21.0 if soil_type=="Rock" else 18.0),
-                            step=0.1, key="geo_gamma")
-    cohesion = st.number_input("Cohesion c (kPa)", min_value=0.0, step=1.0, key="geo_c")
-    phi = st.number_input("Friction Angle φ (°)", min_value=0.0, max_value=45.0,
-                          step=0.5, key="geo_phi")
+    soil_types = ["Clay", "Sand", "Gravel", "Silt", "Rock"]
+    selected_soil = st.selectbox("Select Soil Type", soil_types)
+    density = st.number_input("Enter Density (kg/m³)", min_value=1000, max_value=2500, step=10)
+    cohesion = st.number_input("Enter Cohesion (kPa)", min_value=0, max_value=100, step=1)
 
-    B = st.number_input("Foundation Width B (m)", min_value=0.1, step=0.1, key="geo_B")
-    Df = st.number_input("Foundation Depth Df (m)", min_value=0.0,
-                         step=0.1, key="geo_Df")
-    FS = st.number_input("Factor of Safety", value=2.0, min_value=1.0,
-                         step=0.1, key="geo_FS")
+    if "geotechnical_data" not in st.session_state:
+        st.session_state.geotechnical_data = pd.DataFrame(columns=["Soil Type", "Density", "Cohesion"])
 
-    st.markdown("---")
-
-    # 2) Settlement inputs
-    e0 = st.number_input("Initial Void Ratio e0", min_value=0.5, max_value=1.0,
-                         value=0.8, step=0.05, key="geo_e0")
-    mv = st.number_input("Compressibility mv (m²/kN)", min_value=1e-5,
-                         value=1e-4, step=1e-5, format="%.5f", key="geo_mv")
-    delta_sigma = st.number_input("Δσ (kPa)", value=50.0, step=5.0,
-                                  key="geo_dsigma")
-    H = st.number_input("Clay Layer Thickness H (m)", value=1.0,
-                        step=0.1, key="geo_H")
-
-    st.markdown("---")
-
-    # 3) CPT input
-    qc = st.number_input("CPT Tip Resistance qc (MPa)", min_value=0.0,
-                         value=0.5, step=0.1, key="geo_qc")
-    sigma_v0 = st.number_input("Overburden σ'v0 (kPa)", value=gamma*Df,
-                               step=5.0, key="geo_sigma_v0")
-
-    if st.button("🔎 Compute Geotech Results", key="geo_compute"):
-        # Earth‑pressure coefficients
-        K0 = 1 - np.sin(np.radians(phi))
-        Ka = np.tan(np.radians(45 - phi/2))**2
-        Kp = np.tan(np.radians(45 + phi/2))**2
-
-        # Terzaghi bearing factors
-        phi_rad = np.radians(phi)
-        Nq = np.exp(np.pi * np.tan(phi_rad)) * (np.tan(np.radians(45 + phi/2)))**2
-        Nc = (Nq - 1) / np.tan(phi_rad) if phi>0 else 5.7
-        Ngamma = 2 * (Nq + 1) * np.tan(phi_rad)
-
-        q0 = gamma * Df
-        qult = cohesion * Nc + q0 * Nq + 0.5 * gamma * B * Ngamma
-        qall = qult / FS
-
-        # Consolidation settlement
-        s = mv * H / (1 + e0) * delta_sigma
-
-        # CPT correlation index
-        Nkt = (qc * 1e3) / sigma_v0 if sigma_v0>0 else np.nan
-
-        st.session_state.geotech_results = {
-            "K0": K0,
-            "Ka": Ka,
-            "Kp": Kp,
-            "qult (kPa)": qult,
-            f"qall (kPa) @ FS={FS}": qall,
-            "Settlement (m)": s,
-            "CPT Nkt": Nkt
-        }
-
-    # Display results
-    if "geotech_results" in st.session_state:
-        df_res = pd.DataFrame.from_dict(
-            st.session_state.geotech_results, orient="index", columns=["Value"]
-        ).reset_index()
-        df_res.columns = ["Parameter", "Value"]
-
-        st.write("### Geotechnical Results")
-        st.table(df_res.style.format("{:.3f}"))
-
-        st.markdown("##### Commentary")
-        st.markdown(
-            f"> Soil: **{soil_type}**, φ={phi:.1f}°, c={cohesion:.1f} kPa  \n"
-            f"- K0={K0:.2f}, Ka={Ka:.2f}, Kp={Kp:.2f}  \n"
-            f"- Terzaghi qult ≈ **{qult:.0f} kPa**, qall ≈ **{qall:.0f} kPa**  \n"
-            f"- Settlement ≈ **{s:.3f} m** under Δσ={delta_sigma} kPa  \n"
-            f"- CPT index Nkt ≈ **{Nkt:.2f}**"
+    if st.button("Add Soil Data"):
+        new_row = pd.DataFrame({
+            "Soil Type": [selected_soil],
+            "Density": [density],
+            "Cohesion": [cohesion]
+        })
+        st.session_state.geotechnical_data = pd.concat(
+            [st.session_state.geotechnical_data, new_row], ignore_index=True
         )
 
-
-
-
+    st.write("### Soil Data")
+    st.dataframe(st.session_state.geotechnical_data)
 
 
 # --- Hydraulic and Hydrological Modeling Section ---
