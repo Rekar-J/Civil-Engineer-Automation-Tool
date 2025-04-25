@@ -1,4 +1,5 @@
 Tab,SubTab,Data
 HomeBanner,,
 Design and Analysis,Structural Analysis,"Load Type,Load Value (kN),Distance (m),Load Factor,Moment (kN-m)
+Dead Load,43.0,33.0,1.0,1419.0
 "
